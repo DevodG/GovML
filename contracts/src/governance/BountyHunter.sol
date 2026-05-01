@@ -5,13 +5,17 @@ import {AccessControlUpgradeable} from "@openzeppelin/contracts-upgradeable/acce
 import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import {VRFConsumerBaseV2} from "chainlink-brownie-contracts/contracts/src/v0.8/vrf/VRFConsumerBaseV2.sol";
+import {VRFCoordinatorV2Interface} from "chainlink-brownie-contracts/contracts/src/v0.8/vrf/interfaces/VRFCoordinatorV2Interface.sol";
 
 import {
     BountyAssignment,
     BountyPhase,
     BOUNTY_HUNTER_ROLE,
     MIN_BOUNTY_HUNTER_STAKE,
-    BOUNTY_HUNTERS_PER_MILESTONE
+    BOUNTY_HUNTERS_PER_MILESTONE,
+    COMMIT_WINDOW_BLOCKS,
+    REVEAL_WINDOW_BLOCKS
 } from "../Types.sol";
 import {
     ZeroAddressNotAllowed,
@@ -24,19 +28,29 @@ import {
     InvalidBountyPhase,
     CommitRevealMismatch,
     InvalidRating,
-    InsufficientHunterPool
+    InsufficientHunterPool,
+    CommitDeadlineNotReached,
+    RevealDeadlinePassed,
+    LateRevealPenalty,
+    VRFRequestPending,
+    VRFRequestNotFound
 } from "../Types.sol";
 import {IBountyHunter} from "../interfaces/IBountyHunter.sol";
 
-/// @title BountyHunter — Bounty Hunter Registration, Assignment, and Commit-Reveal Review
+/// @title BountyHunter — Bounty Hunter Registration, VRF Assignment, and Commit-Reveal Review
 /// @notice Manages the complete bounty hunter lifecycle:
 ///         1. Registration with ETH staking (skin-in-the-game)
-///         2. Pseudo-random assignment to milestones (deterministic VRF simulation in Phase 5)
-///         3. Two-phase commit-reveal review to prevent collusion
+///         2. Chainlink VRF V2 random assignment to milestones (Vuln 3 fix)
+///         3. Two-phase commit-reveal review with block-based deadlines (Vuln 10 fix)
 ///         4. Slashing for misconduct
-/// @dev    Upgradeable via TransparentUpgradeableProxy. The VRF selection uses a deterministic
-///         pseudo-random approach for Phase 5 testing. Phase 6+ will integrate Chainlink VRF v2
-///         for provably random selection. Commit-reveal prevents hunters from copying each other.
+/// @dev    Upgradeable via TransparentUpgradeableProxy. Uses Chainlink VRF V2 for
+///         provably random hunter selection. The constructor passes VRF coordinator to
+///         VRFConsumerBaseV2; initialize() sets the subscription config.
+///
+///         VRF flow:
+///           1. requestHunterAssignment() calls coordinator.requestRandomWords()
+///           2. Chainlink node fulfills with fulfillRandomWords() callback
+///           3. _selectTwoHuntersFromRandom() uses the random word to pick 2 distinct hunters
 ///
 ///         Commit-reveal flow:
 ///           Phase 1 (COMMITTED): hunter submits commit_hash = keccak256(abi.encodePacked(rating, salt))
@@ -47,6 +61,7 @@ contract BountyHunter is
     AccessControlUpgradeable,
     PausableUpgradeable,
     ReentrancyGuard,
+    VRFConsumerBaseV2,
     IBountyHunter
 {
     // =========================================================================
@@ -78,23 +93,78 @@ contract BountyHunter is
     /// @notice Address of the MilestoneEscrow contract
     address public milestone_escrow_address;
 
+    /// @notice Commit phase deadline (block number) per assignment
+    /// @dev mapping_commit_deadline[assignment_id] => deadline block number
+    mapping(uint256 => uint256) private mapping_commit_deadline;
+
+    /// @notice Reveal phase deadline (block number) per assignment
+    /// @dev mapping_reveal_deadline[assignment_id] => deadline block number
+    mapping(uint256 => uint256) private mapping_reveal_deadline;
+
+    /// @notice Tracks whether a hunter has been penalized for late reveal
+    mapping(uint256 => mapping(address => bool)) private mapping_late_penalized;
+
+    // =========================================================================
+    // CHAINLINK VRF V2 STATE (Vuln 3 fix)
+    // =========================================================================
+
+    /// @notice Chainlink VRF Coordinator V2 interface
+    VRFCoordinatorV2Interface private immutable i_vrfCoordinator;
+
+    /// @notice VRF subscription ID (funded with LINK to pay for VRF requests)
+    uint64 public s_subscriptionId;
+
+    /// @notice Gas lane key hash (determines the gas price for VRF fulfillment)
+    bytes32 public s_keyHash;
+
+    /// @notice Number of block confirmations before VRF fulfillment (default 3)
+    uint16 public s_requestConfirmations;
+
+    /// @notice Callback gas limit for VRF fulfillment
+    uint32 public s_callbackGasLimit;
+
+    /// @notice Mapping from VRF request ID to milestone ID (for callback routing)
+    mapping(uint256 => uint256) private mapping_vrf_requests;
+
+    /// @notice Tracks pending VRF requests per milestone (prevent duplicate requests)
+    mapping(uint256 => bool) private mapping_vrf_pending;
+
     // =========================================================================
     // STORAGE GAP
     // =========================================================================
 
-    uint256[42] private __gap;
+    uint256[34] private __gap;
 
     // =========================================================================
-    // INITIALIZER
+    // CONSTRUCTOR (VRF) + INITIALIZER
     // =========================================================================
 
-    function initialize(address admin) external initializer {
+    /// @notice Constructor sets the immutable VRF Coordinator address
+    /// @dev This is required by VRFConsumerBaseV2. The coordinator address cannot change.
+    /// @param vrfCoordinator Address of the Chainlink VRF Coordinator V2
+    constructor(address vrfCoordinator) VRFConsumerBaseV2(vrfCoordinator) {
+        i_vrfCoordinator = VRFCoordinatorV2Interface(vrfCoordinator);
+    }
+
+    function initialize(
+        address admin,
+        uint64 subscriptionId,
+        bytes32 keyHash,
+        uint16 requestConfirmations,
+        uint32 callbackGasLimit
+    ) external initializer {
         if (admin == address(0)) revert ZeroAddressNotAllowed();
 
         __AccessControl_init();
         __Pausable_init();
 
         _grantRole(DEFAULT_ADMIN_ROLE, admin);
+
+        // VRF configuration
+        s_subscriptionId = subscriptionId;
+        s_keyHash = keyHash;
+        s_requestConfirmations = requestConfirmations;
+        s_callbackGasLimit = callbackGasLimit;
     }
 
     // =========================================================================
@@ -104,6 +174,20 @@ contract BountyHunter is
     function setMilestoneEscrowAddress(address _milestone_escrow) external onlyRole(DEFAULT_ADMIN_ROLE) {
         if (_milestone_escrow == address(0)) revert ZeroAddressNotAllowed();
         milestone_escrow_address = _milestone_escrow;
+    }
+
+    /// @notice Update VRF configuration
+    /// @dev Only callable by DEFAULT_ADMIN_ROLE
+    function setVRFConfig(
+        uint64 subscriptionId,
+        bytes32 keyHash,
+        uint16 requestConfirmations,
+        uint32 callbackGasLimit
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        s_subscriptionId = subscriptionId;
+        s_keyHash = keyHash;
+        s_requestConfirmations = requestConfirmations;
+        s_callbackGasLimit = callbackGasLimit;
     }
 
     // =========================================================================
@@ -134,10 +218,10 @@ contract BountyHunter is
     // EXTERNAL FUNCTIONS — Assignment
     // =========================================================================
 
-    /// @notice Request assignment of hunters to a milestone
-    /// @dev Uses pseudo-random selection from the hunter pool. In Phase 6+,
-    ///      this will be replaced with Chainlink VRF v2 for provable randomness.
-    ///      Requires at least BOUNTY_HUNTERS_PER_MILESTONE (2) active hunters.
+    /// @notice Request assignment of hunters to a milestone via Chainlink VRF
+    /// @dev SECURITY (Vuln 3): Replaces pseudo-random selection with Chainlink VRF V2
+    ///      for provably random hunter selection. Requests 1 random word from the VRF
+    ///      coordinator; fulfillment happens asynchronously in fulfillRandomWords().
     /// @param milestone_id ID of the milestone needing reviewers
     function requestHunterAssignment(uint256 milestone_id)
         external
@@ -145,19 +229,53 @@ contract BountyHunter is
         onlyRole(DEFAULT_ADMIN_ROLE)
         whenNotPaused
     {
+        // Prevent duplicate VRF requests for the same milestone
+        if (mapping_vrf_pending[milestone_id]) {
+            revert VRFRequestPending(milestone_id);
+        }
+
         // Need at least 2 active hunters
         uint256 active_count = _getActiveHunterCount();
         if (active_count < BOUNTY_HUNTERS_PER_MILESTONE) {
             revert InsufficientHunterPool(active_count, BOUNTY_HUNTERS_PER_MILESTONE);
         }
 
+        // Request randomness from Chainlink VRF
+        uint256 requestId = i_vrfCoordinator.requestRandomWords(
+            s_keyHash,
+            s_subscriptionId,
+            s_requestConfirmations,
+            s_callbackGasLimit,
+            1 // numWords: we only need 1 random word to select 2 hunters
+        );
+
+        // Map request to milestone
+        mapping_vrf_requests[requestId] = milestone_id;
+        mapping_vrf_pending[milestone_id] = true;
+
+        emit VRFRequested(milestone_id, requestId);
+    }
+
+    /// @notice Chainlink VRF callback — selects 2 hunters from the random word
+    /// @dev Called by VRF Coordinator only (enforced by VRFConsumerBaseV2).
+    ///      Creates the BountyAssignment and sets block-based commit/reveal deadlines.
+    function fulfillRandomWords(
+        uint256 requestId,
+        uint256[] memory randomWords
+    ) internal override {
+        uint256 milestone_id = mapping_vrf_requests[requestId];
+        if (milestone_id == 0) revert VRFRequestNotFound(requestId);
+
+        // Clear pending state
+        mapping_vrf_pending[milestone_id] = false;
+        delete mapping_vrf_requests[requestId];
+
+        // Select 2 hunters using the VRF random word
+        (address h1, address h2) = _selectTwoHuntersFromRandom(randomWords[0]);
+
         _assignment_count++;
         uint256 aid = _assignment_count;
 
-        // Select 2 hunters pseudo-randomly
-        (address h1, address h2) = _selectTwoHunters(milestone_id);
-
-        // Create empty fixed arrays for initialization
         address[2] memory hunters = [h1, h2];
         bytes32[2] memory empty_commits;
         uint8[2] memory empty_ratings;
@@ -165,11 +283,15 @@ contract BountyHunter is
         mapping_assignments[aid] = BountyAssignment({
             id: aid,
             milestone_id: milestone_id,
-            phase: BountyPhase.COMMITTED, // Ready for commits
+            phase: BountyPhase.COMMITTED,
             hunters: hunters,
             commit_hashes: empty_commits,
             ratings: empty_ratings
         });
+
+        // Set block-based deadlines
+        mapping_commit_deadline[aid] = block.number + COMMIT_WINDOW_BLOCKS;
+        mapping_reveal_deadline[aid] = block.number + COMMIT_WINDOW_BLOCKS + REVEAL_WINDOW_BLOCKS;
 
         mapping_milestone_assignments[milestone_id] = aid;
 
@@ -181,7 +303,8 @@ contract BountyHunter is
     // =========================================================================
 
     /// @notice Submit a commit hash for milestone review (phase 1)
-    /// @dev commit_hash = keccak256(abi.encodePacked(rating, salt))
+    /// @dev SECURITY (Vuln 10): Enforces block-based deadline for commit phase.
+    ///      commit_hash = keccak256(abi.encodePacked(rating, salt))
     function commitReview(uint256 assignment_id, bytes32 commit_hash)
         external
         override
@@ -193,6 +316,9 @@ contract BountyHunter is
         if (assignment.phase != BountyPhase.COMMITTED) {
             revert InvalidBountyPhase(assignment_id, assignment.phase);
         }
+
+        // SECURITY FIX (Vuln 10): Enforce commit deadline
+        require(block.number <= mapping_commit_deadline[assignment_id], "Commit deadline passed");
 
         uint256 hunter_slot = _getHunterSlot(assignment_id, msg.sender);
 
@@ -210,7 +336,9 @@ contract BountyHunter is
     }
 
     /// @notice Reveal rating and salt to complete review (phase 2)
-    /// @dev Must match previously committed hash. Rating must be 1-10.
+    /// @dev SECURITY (Vuln 10): Enforces block-based deadline for reveal phase.
+    ///      Late revealers are penalized. Must match previously committed hash.
+    ///      Rating must be 1-10.
     function revealReview(uint256 assignment_id, uint8 rating, bytes32 salt)
         external
         override
@@ -221,6 +349,11 @@ contract BountyHunter is
 
         if (assignment.phase != BountyPhase.REVEALED) {
             revert InvalidBountyPhase(assignment_id, assignment.phase);
+        }
+
+        // SECURITY FIX (Vuln 10): Enforce reveal deadline
+        if (block.number > mapping_reveal_deadline[assignment_id]) {
+            revert RevealDeadlinePassed(assignment_id, mapping_reveal_deadline[assignment_id]);
         }
 
         if (rating < 1 || rating > 10) {
@@ -245,6 +378,40 @@ contract BountyHunter is
         }
 
         emit ReviewRevealed(assignment_id, msg.sender, rating);
+    }
+
+    /// @notice Force-advance from COMMITTED to REVEALED phase after commit deadline
+    /// @dev SECURITY (Vuln 10): If the commit deadline passes and not all hunters committed,
+    ///      any hunter who didn't commit gets penalized. This prevents blocking.
+    function forceAdvanceToReveal(uint256 assignment_id)
+        external
+        onlyRole(DEFAULT_ADMIN_ROLE)
+        whenNotPaused
+    {
+        _requireAssignmentExists(assignment_id);
+        BountyAssignment storage assignment = mapping_assignments[assignment_id];
+
+        if (assignment.phase != BountyPhase.COMMITTED) {
+            revert InvalidBountyPhase(assignment_id, assignment.phase);
+        }
+
+        require(block.number > mapping_commit_deadline[assignment_id], "Commit deadline not reached");
+
+        // Slash hunters who didn't commit
+        for (uint256 i = 0; i < 2;) {
+            if (assignment.commit_hashes[i] == bytes32(0)) {
+                address hunter = assignment.hunters[i];
+                if (mapping_hunter_active[hunter]) {
+                    uint256 slash_amount = mapping_hunter_stakes[hunter];
+                    mapping_hunter_active[hunter] = false;
+                    mapping_hunter_stakes[hunter] = 0;
+                    emit HunterSlashed(hunter, slash_amount, "Failed to commit before deadline");
+                }
+            }
+            unchecked { ++i; }
+        }
+
+        assignment.phase = BountyPhase.REVEALED;
     }
 
     // =========================================================================
@@ -312,6 +479,13 @@ contract BountyHunter is
     }
 
     // =========================================================================
+    // EVENTS (VRF)
+    // =========================================================================
+
+    /// @notice Emitted when a VRF randomness request is sent
+    event VRFRequested(uint256 indexed milestone_id, uint256 requestId);
+
+    // =========================================================================
     // INTERNAL HELPERS
     // =========================================================================
 
@@ -332,37 +506,40 @@ contract BountyHunter is
     /// @dev Counts active (non-slashed) hunters
     function _getActiveHunterCount() internal view returns (uint256) {
         uint256 count = 0;
-        for (uint256 i = 0; i < hunter_pool.length; i++) {
-            if (mapping_hunter_active[hunter_pool[i]]) count++;
+        uint256 len = hunter_pool.length;
+        for (uint256 i = 0; i < len;) {
+            if (mapping_hunter_active[hunter_pool[i]]) {
+                unchecked { ++count; }
+            }
+            unchecked { ++i; }
         }
         return count;
     }
 
-    /// @dev Pseudo-random selection of 2 distinct active hunters
-    ///      Uses block data for entropy — sufficient for Phase 5 testing.
-    ///      Phase 6+ replaces this with Chainlink VRF v2.
-    function _selectTwoHunters(uint256 milestone_id) internal view returns (address, address) {
+    /// @dev Selects 2 distinct active hunters using a Chainlink VRF random word
+    /// @param randomWord The random word from Chainlink VRF callback
+    /// @return Two distinct active hunter addresses
+    function _selectTwoHuntersFromRandom(uint256 randomWord) internal view returns (address, address) {
         // Build active hunter list
-        address[] memory active = new address[](_getActiveHunterCount());
+        uint256 activeCount = _getActiveHunterCount();
+        address[] memory active = new address[](activeCount);
         uint256 idx = 0;
-        for (uint256 i = 0; i < hunter_pool.length; i++) {
+        uint256 len = hunter_pool.length;
+        for (uint256 i = 0; i < len;) {
             if (mapping_hunter_active[hunter_pool[i]]) {
                 active[idx] = hunter_pool[i];
-                idx++;
+                unchecked { ++idx; }
             }
+            unchecked { ++i; }
         }
 
-        // Pseudo-random selection
-        uint256 seed = uint256(keccak256(abi.encodePacked(
-            block.timestamp, block.prevrandao, milestone_id, active.length
-        )));
-
-        uint256 idx1 = seed % active.length;
-        uint256 idx2 = (seed / active.length + 1) % active.length;
+        // Use VRF random word for selection
+        uint256 idx1 = randomWord % activeCount;
+        uint256 idx2 = (randomWord / activeCount + 1) % activeCount;
 
         // Ensure distinct
         if (idx2 == idx1) {
-            idx2 = (idx1 + 1) % active.length;
+            idx2 = (idx1 + 1) % activeCount;
         }
 
         return (active[idx1], active[idx2]);

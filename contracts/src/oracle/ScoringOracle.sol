@@ -3,6 +3,7 @@ pragma solidity ^0.8.28;
 
 import {AccessControlUpgradeable} from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 
 import {
@@ -20,9 +21,12 @@ import {
     InvalidZKProof,
     ScoreAlreadyRecorded,
     BidNotFound,
-    TenderNotClosed
+    TenderNotClosed,
+    InvalidScoreRange,
+    ScoreMismatch
 } from "../Types.sol";
 import {IScoringOracle} from "../interfaces/IScoringOracle.sol";
+import {IZKPController} from "../interfaces/IZKPController.sol";
 
 /// @title ScoringOracle — ML Score Recording with ZKP Proof Verification
 /// @notice Records ML-computed bid scores on-chain after ZKP verification.
@@ -37,6 +41,7 @@ contract ScoringOracle is
     Initializable,
     AccessControlUpgradeable,
     PausableUpgradeable,
+    ReentrancyGuard,
     IScoringOracle
 {
     // =========================================================================
@@ -60,6 +65,15 @@ contract ScoringOracle is
     /// @notice Address of the ZKPController contract for proof verification
     /// @dev Set to address(0) until Phase 6 — recordScore will skip ZKP check if not set
     address public zkp_controller_address;
+
+    /// @notice Maximum allowed score (prevents score inflation)
+    uint256 public constant MAX_SCORE = 100 * ZKP_SCALING_FACTOR;
+
+    /// @notice Minimum allowed score (prevents score manipulation)
+    uint256 public constant MIN_SCORE = 1 * ZKP_SCALING_FACTOR;
+
+    /// @notice Score consistency tolerance (5%)
+    uint256 public constant SCORE_TOLERANCE = 5 * ZKP_SCALING_FACTOR / 100;
 
     // =========================================================================
     // STORAGE GAP
@@ -120,10 +134,14 @@ contract ScoringOracle is
     // =========================================================================
 
     /// @notice Record a ZKP-verified ML score for a bid
-    /// @dev Only callable by ORACLE_ROLE. Flow:
-    ///      1. Validate bid exists and belongs to a CLOSED tender
-    ///      2. Verify ZKP proof (if ZKPController is deployed)
-    ///      3. Store the score
+    /// @dev SECURITY: Only callable by ORACLE_ROLE. Flow:
+    ///      1. Prevent duplicate scoring
+    ///      2. Validate tender is CLOSED (bidding ended, ready for scoring)
+    ///      3. Validate bid exists and belongs to this tender
+    ///      4. Validate score is within valid range (MIN_SCORE to MAX_SCORE)
+    ///      5. Verify ZKP proof (if ZKPController is deployed)
+    ///      6. Validate score consistency with public inputs
+    ///      7. Store the score
     ///
     ///      WHY separate from TenderRegistry: Separation of concerns — scoring logic
     ///      and ZKP verification are isolated here so TenderRegistry stays focused
@@ -132,7 +150,7 @@ contract ScoringOracle is
     /// @param bid_id ID of the bid being scored
     /// @param score The ML-computed final score (scaled by ZKP_SCALING_FACTOR)
     /// @param proof Serialized Groth16 proof
-    /// @param public_inputs Public inputs for ZKP verification
+    /// @param public_inputs Public inputs for ZKP verification [tender_id, bid_id, declared_score, ...]
     // @integration ML_SERVICE — triggered via backend after ML scoring
     function recordScore(
         uint256 tender_id,
@@ -145,36 +163,49 @@ contract ScoringOracle is
         override
         onlyRole(ORACLE_ROLE)
         whenNotPaused
+        nonReentrant
     {
-        // Prevent duplicate scoring
+        // SECURITY FIX 1: Prevent duplicate scoring
         if (mapping_scored[bid_id]) {
             revert ScoreAlreadyRecorded(bid_id);
         }
 
-        // Validate tender is CLOSED (bidding ended, ready for scoring)
+        // SECURITY FIX 2: Validate tender is CLOSED (bidding ended, ready for scoring)
         _requireTenderClosed(tender_id);
 
-        // Validate bid exists and belongs to this tender
+        // SECURITY FIX 3: Validate bid exists and belongs to this tender
         _requireBidValid(tender_id, bid_id);
 
-        // Score must be > 0 (0 reserved for "unscored")
-        require(score > 0, "Score must be > 0");
-
-        // ZKP verification (optional — skipped if ZKPController not deployed)
-        if (zkp_controller_address != address(0)) {
-            (bool success,) = zkp_controller_address.staticcall(
-                abi.encodeWithSignature(
-                    "verifyScoreProof(uint256,uint256,bytes,uint256[])",
-                    tender_id,
-                    bid_id,
-                    proof,
-                    public_inputs
-                )
-            );
-            if (!success) revert InvalidZKProof(bid_id);
+        // SECURITY FIX 4: Validate score is within valid range
+        if (score < MIN_SCORE || score > MAX_SCORE) {
+            revert InvalidScoreRange(score, MIN_SCORE, MAX_SCORE);
         }
 
-        // Store score
+        // SECURITY FIX 5: Verify ZKP proof BEFORE storing score
+        // CRITICAL: Uses typed interface call (NOT staticcall) because verifyScoreProof
+        // modifies state (nullifier tracking in Groth16Verifier). staticcall would
+        // silently fail on any state modification, breaking ZKP verification entirely.
+        if (zkp_controller_address != address(0)) {
+            require(public_inputs.length >= 3, "Insufficient public inputs");
+
+            uint256 declared_score = public_inputs[2]; // declared_score from public inputs
+
+            // Typed interface call — NOT staticcall. verifyScoreProof writes nullifiers.
+            bool zkp_valid = IZKPController(zkp_controller_address).verifyScoreProof(
+                tender_id,
+                bid_id,
+                proof,
+                public_inputs
+            );
+            if (!zkp_valid) revert InvalidZKProof(bid_id);
+
+            // SECURITY FIX 6: Validate score consistency with public inputs
+            if (!_scoresWithinTolerance(score, declared_score)) {
+                revert ScoreMismatch(score, declared_score);
+            }
+        }
+
+        // SECURITY FIX 7: Store score atomically after all validations pass
         mapping_scores[bid_id] = score;
         mapping_scored[bid_id] = true;
 
@@ -252,5 +283,12 @@ contract ScoringOracle is
         Bid memory bid = abi.decode(data, (Bid));
         require(bid.tender_id == tender_id, "Bid does not belong to tender");
         require(bid.status == BidStatus.PENDING, "Bid not in PENDING status");
+    }
+
+    /// @dev Check if two scores are within tolerance (5%)
+    function _scoresWithinTolerance(uint256 score1, uint256 score2) internal pure returns (bool) {
+        uint256 diff = score1 > score2 ? score1 - score2 : score2 - score1;
+        uint256 tolerance = (score1 * SCORE_TOLERANCE) / ZKP_SCALING_FACTOR;
+        return diff <= tolerance;
     }
 }

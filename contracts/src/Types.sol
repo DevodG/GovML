@@ -332,3 +332,78 @@ error InsufficientHunterPool(uint256 available, uint256 required);
 
 /// @dev Contractor profile does not exist
 error ProfileNotFound(address contractor);
+
+/// @dev Winner address does not match highest score
+error InvalidWinner(address proposed_winner, address actual_winner);
+
+/// @dev Score is outside valid range
+error InvalidScoreRange(uint256 score, uint256 min_score, uint256 max_score);
+
+/// @dev Score does not match declared score in public inputs
+error ScoreMismatch(uint256 recorded_score, uint256 declared_score);
+
+/// @dev Bid ID does not match tender
+error BidNotInTender(uint256 bid_id, uint256 tender_id);
+
+// =============================================================================
+// PHASE 2 & 3 CONSTANTS — Commit-Reveal, Timing, VRF
+// =============================================================================
+
+/// @dev Number of blocks for the commit phase (approx 30 minutes at 12s/block)
+uint256 constant COMMIT_WINDOW_BLOCKS = 150;
+
+/// @dev Number of blocks for the reveal phase (approx 30 minutes at 12s/block)
+uint256 constant REVEAL_WINDOW_BLOCKS = 150;
+
+/// @dev Dead man's switch grace period (24 hours after proof window expiry)
+uint256 constant DEAD_MAN_GRACE_PERIOD = 24 hours;
+
+/// @dev One-time extension duration for admin-granted deadline extensions
+uint256 constant ADMIN_EXTENSION_DURATION = 7 days;
+
+/// @dev Minimum IPFS CIDv0 hash length (Qm prefix = 46 chars, stored as bytes32 commitment)
+/// @dev We check that the hash is non-zero; structural validation is done on the raw bytes
+uint256 constant MIN_HASH_LENGTH = 32;
+
+// =============================================================================
+// PHASE 2 & 3 CUSTOM ERRORS
+// =============================================================================
+
+/// @dev Bid commit has not been submitted yet
+error BidCommitNotFound(uint256 tender_id, address contractor);
+
+/// @dev Bid commit-reveal hash does not match
+error BidCommitRevealMismatch(uint256 tender_id, address contractor);
+
+/// @dev Commit phase window has closed
+error CommitWindowClosed(uint256 tender_id, uint256 deadline_block);
+
+/// @dev Reveal phase window has closed or not yet open
+error RevealWindowInvalid(uint256 tender_id, uint256 reveal_start, uint256 reveal_end);
+
+/// @dev Dead man's switch triggered during grace period
+error GracePeriodActive(uint256 milestone_id, uint256 grace_until);
+
+/// @dev Extension has already been granted for this milestone
+error ExtensionAlreadyGranted(uint256 milestone_id);
+
+/// @dev Commit phase deadline has not been reached yet (bounty hunter)
+error CommitDeadlineNotReached(uint256 assignment_id, uint256 deadline_block);
+
+/// @dev Reveal phase deadline has passed (bounty hunter)
+error RevealDeadlinePassed(uint256 assignment_id, uint256 deadline_block);
+
+/// @dev Hunter revealed too late — penalty applied
+error LateRevealPenalty(uint256 assignment_id, address hunter);
+
+/// @dev Invalid IPFS hash structure
+error InvalidIPFSHash(bytes32 hash);
+
+/// @dev Invalid GPS hash structure
+error InvalidGPSHash(bytes32 hash);
+
+/// @dev VRF request is already pending
+error VRFRequestPending(uint256 milestone_id);
+
+/// @dev VRF request not found for callback
+error VRFRequestNotFound(uint256 request_id);

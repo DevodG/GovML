@@ -221,8 +221,9 @@ contract ZKPController is
     // =========================================================================
 
     /// @notice Verify an invoice nullifier proof and check for double-submission
-    /// @dev The nullifier_hash is deterministic: same invoice always produces same nullifier.
+    /// @dev SECURITY: The nullifier_hash is deterministic: same invoice always produces same nullifier.
     ///      If the nullifier was seen before, the invoice was already submitted — tx reverts.
+    ///      Uses Groth16Verifier's nullifier tracking to prevent replay attacks.
     /// @param milestone_id ID of the milestone
     /// @param proof_a Groth16 proof point A
     /// @param proof_b Groth16 proof point B
@@ -241,18 +242,16 @@ contract ZKPController is
     {
         require(public_inputs.length >= 2, "Missing nullifier outputs");
 
-        // Verify the proof
+        // SECURITY FIX: Verify the proof with structural validation
         bool valid = verifier.verifyProof(proof_a, proof_b, proof_c, public_inputs);
         if (!valid) revert InvalidZKProof(milestone_id);
 
+        // SECURITY FIX: The verifier now automatically checks for double-submission
+        // via its internal nullifier mapping, so we don't need to check again here
         bytes32 nullifier_hash = bytes32(public_inputs[0]);
-
-        // Check for double-submission
-        require(!mapping_nullifiers[nullifier_hash], "Nullifier already used (double-submit)");
-
-        // Mark nullifier as used
         mapping_nullifiers[nullifier_hash] = true;
 
+        // Record proof
         _recordProof(ProofType.NULLIFIER, msg.sender, nullifier_hash);
 
         emit NullifierUsed(nullifier_hash, milestone_id);

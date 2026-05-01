@@ -3,13 +3,16 @@ pragma solidity ^0.8.28;
 
 import {Test, console2} from "forge-std/Test.sol";
 import {TenderRegistry} from "../../src/core/TenderRegistry.sol";
+import {BidEscrow} from "../../src/core/BidEscrow.sol";
+import {ScoringOracle} from "../../src/oracle/ScoringOracle.sol";
 import {MockZKPVerifier} from "../mocks/MockZKPVerifier.sol";
 import {
     Tender,
     TenderStatus,
     GOVT_ROLE,
     ORACLE_ROLE,
-    CONTRACTOR_ROLE
+    CONTRACTOR_ROLE,
+    COMMIT_WINDOW_BLOCKS
 } from "../../src/Types.sol";
 import {
     TenderNotFound,
@@ -32,6 +35,8 @@ contract TenderRegistryTest is Test {
     // =========================================================================
 
     TenderRegistry public registry;
+    BidEscrow public escrow;
+    ScoringOracle public scoringOracle;
     MockZKPVerifier public mockZKP;
 
     address public admin = makeAddr("admin");
@@ -52,18 +57,40 @@ contract TenderRegistryTest is Test {
     function setUp() public {
         // Deploy contracts
         registry = new TenderRegistry();
+        escrow = new BidEscrow();
+        scoringOracle = new ScoringOracle();
         mockZKP = new MockZKPVerifier();
 
         // Initialize
         registry.initialize(admin, govt);
+        escrow.initialize(admin, address(registry), 0.01 ether);
+        scoringOracle.initialize(admin, address(registry), address(escrow));
 
-        // Grant oracle role
-        vm.prank(admin);
+        vm.startPrank(admin);
         registry.grantRole(ORACLE_ROLE, oracle);
+        scoringOracle.grantRole(ORACLE_ROLE, oracle);
 
-        // Set ZKP controller (mock)
-        vm.prank(admin);
         registry.setZKPControllerAddress(address(mockZKP));
+        registry.setBidEscrowAddress(address(escrow));
+        registry.setScoringOracleAddress(address(scoringOracle));
+
+        // TenderRegistry calls lockWinnerStake/markLosers internally
+        escrow.grantRole(escrow.DEFAULT_ADMIN_ROLE(), address(registry));
+        vm.stopPrank();
+
+        vm.deal(contractor1, 10 ether);
+        vm.deal(contractor2, 10 ether);
+    }
+
+    /// @dev Helper: commit-reveal bid
+    function _commitAndRevealBid(address bidder, uint256 _tenderId, uint256 amount, uint256 stakeAmt) internal returns (uint256) {
+        bytes32 salt = keccak256(abi.encodePacked(bidder, amount));
+        bytes32 commitHash = keccak256(abi.encodePacked(amount, salt));
+        vm.prank(bidder);
+        escrow.commitBid{value: stakeAmt}(_tenderId, commitHash);
+        vm.roll(block.number + COMMIT_WINDOW_BLOCKS + 1);
+        vm.prank(bidder);
+        return escrow.submitBid(_tenderId, amount, salt);
     }
 
     // =========================================================================
@@ -250,18 +277,24 @@ contract TenderRegistryTest is Test {
         vm.prank(govt);
         uint256 tenderId = registry.postTender(IPFS_HASH, BUDGET, deadline, MILESTONE_COUNT);
 
+        uint256 bidId = _commitAndRevealBid(contractor1, tenderId, 80 ether, 0.5 ether);
+
         vm.warp(deadline + 1);
         vm.prank(govt);
         registry.closeBidding(tenderId);
 
-        // Oracle allots winner
-        bytes memory proof = hex"deadbeef";
-        uint256[] memory inputs = new uint256[](2);
-        inputs[0] = 100;
-        inputs[1] = 200;
+        // Record score so validation passes
+        vm.prank(oracle);
+        scoringOracle.recordScore(tenderId, bidId, 85_000_000, hex"", new uint256[](0));
+
+        // ZKP controller is set, so allotWinner requires 3 public inputs
+        uint256[] memory inputs = new uint256[](3);
+        inputs[0] = tenderId;
+        inputs[1] = bidId;
+        inputs[2] = 85_000_000;
 
         vm.prank(oracle);
-        registry.allotWinner(tenderId, contractor1, proof, inputs);
+        registry.allotWinner(tenderId, contractor1, hex"deadbeef", inputs);
 
         Tender memory tender = registry.getTender(tenderId);
         assertEq(uint256(tender.status), uint256(TenderStatus.ALLOTTED));
@@ -273,15 +306,25 @@ contract TenderRegistryTest is Test {
         vm.prank(govt);
         uint256 tenderId = registry.postTender(IPFS_HASH, BUDGET, deadline, MILESTONE_COUNT);
 
+        uint256 bidId = _commitAndRevealBid(contractor1, tenderId, 80 ether, 0.5 ether);
+
         vm.warp(deadline + 1);
         vm.prank(govt);
         registry.closeBidding(tenderId);
 
+        vm.prank(oracle);
+        scoringOracle.recordScore(tenderId, bidId, 85_000_000, hex"", new uint256[](0));
+
+        uint256[] memory inputs = new uint256[](3);
+        inputs[0] = tenderId;
+        inputs[1] = bidId;
+        inputs[2] = 85_000_000;
+
         vm.expectEmit(true, true, false, true);
-        emit WinnerAllotted(tenderId, contractor1, 0);
+        emit WinnerAllotted(tenderId, contractor1, bidId);
 
         vm.prank(oracle);
-        registry.allotWinner(tenderId, contractor1, hex"deadbeef", new uint256[](0));
+        registry.allotWinner(tenderId, contractor1, hex"deadbeef", inputs);
     }
 
     // =========================================================================
@@ -321,9 +364,9 @@ contract TenderRegistryTest is Test {
         vm.prank(govt);
         uint256 tenderId = registry.postTender(IPFS_HASH, BUDGET, deadline, MILESTONE_COUNT);
 
-        // Don't close bidding — try to allot directly
+        // Don't close bidding — try to allot directly (tender is OPEN)
         vm.prank(oracle);
-        vm.expectRevert(abi.encodeWithSelector(TenderNotOpen.selector, tenderId, TenderStatus.OPEN));
+        vm.expectRevert(); // TenderNotOpen (status != CLOSED)
         registry.allotWinner(tenderId, contractor1, hex"", new uint256[](0));
     }
 

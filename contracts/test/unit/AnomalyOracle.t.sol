@@ -13,7 +13,8 @@ import {
     GOVT_ROLE,
     ORACLE_ROLE,
     AUDITOR_ROLE,
-    ANOMALY_FREEZE_DURATION
+    ANOMALY_FREEZE_DURATION,
+    COMMIT_WINDOW_BLOCKS
 } from "../../src/Types.sol";
 import {
     FlagNotFound,
@@ -72,8 +73,17 @@ contract AnomalyOracleTest is Test {
         vm.prank(govt);
         tenderId = registry.postTender(IPFS_HASH, BUDGET, deadline, MILESTONE_COUNT);
 
-        vm.prank(contractor1);
-        bidId = escrow.submitBid{value: STAKE_AMOUNT}(tenderId, 80 ether);
+        bidId = _commitAndRevealBid(contractor1, tenderId, 80 ether, STAKE_AMOUNT);
+    }
+
+    function _commitAndRevealBid(address bidder, uint256 _tenderId, uint256 amount, uint256 stakeAmt) internal returns (uint256 _bidId) {
+        bytes32 salt = keccak256(abi.encodePacked(bidder, amount));
+        bytes32 commitHash = keccak256(abi.encodePacked(amount, salt));
+        vm.prank(bidder);
+        escrow.commitBid{value: stakeAmt}(_tenderId, commitHash);
+        vm.roll(block.number + COMMIT_WINDOW_BLOCKS + 1);
+        vm.prank(bidder);
+        _bidId = escrow.submitBid(_tenderId, amount, salt);
     }
 
     // =========================================================================

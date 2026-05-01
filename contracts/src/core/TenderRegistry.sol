@@ -9,10 +9,12 @@ import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Ini
 import {
     Tender,
     TenderStatus,
+    Bid,
     BidStatus,
     GOVT_ROLE,
     ORACLE_ROLE,
-    CONTRACTOR_ROLE
+    CONTRACTOR_ROLE,
+    ZKP_SCALING_FACTOR
 } from "../Types.sol";
 import {
     TenderNotFound,
@@ -20,9 +22,14 @@ import {
     BiddingDeadlinePassed,
     BiddingDeadlineNotPassed,
     ZeroAddressNotAllowed,
-    InvalidZKProof
+    InvalidZKProof,
+    InvalidWinner,
+    ScoreMismatch
 } from "../Types.sol";
 import {ITenderRegistry} from "../interfaces/ITenderRegistry.sol";
+import {IBidEscrow} from "../interfaces/IBidEscrow.sol";
+import {IScoringOracle} from "../interfaces/IScoringOracle.sol";
+import {IZKPController} from "../interfaces/IZKPController.sol";
 
 /// @title TenderRegistry — Government Tender Lifecycle Management
 /// @notice Manages the full lifecycle of government tenders: posting, bid closure,
@@ -57,11 +64,23 @@ contract TenderRegistry is
     /// @dev Set to address(0) until Phase 6 — allotWinner will skip ZKP check if not set
     address public zkp_controller_address;
 
+    /// @notice Address of the ScoringOracle contract for score validation
+    address public scoring_oracle_address;
+
     /// @notice Mapping from tender_id to the winning bid_id (set after allotment)
     mapping(uint256 => uint256) public mapping_winning_bids;
 
     /// @notice Mapping from tender_id to the winning contractor address
     mapping(uint256 => address) public mapping_winners;
+
+    /// @notice Maximum allowed score (prevents score inflation)
+    uint256 public constant MAX_SCORE = 100 * ZKP_SCALING_FACTOR;
+
+    /// @notice Minimum allowed score (prevents score manipulation)
+    uint256 public constant MIN_SCORE = 1 * ZKP_SCALING_FACTOR;
+
+    /// @notice Score consistency tolerance (5%)
+    uint256 public constant SCORE_TOLERANCE = 5 * ZKP_SCALING_FACTOR / 100;
 
     // =========================================================================
     // STORAGE GAP — Reserve slots for future upgrades (ERC-7201 pattern)
@@ -109,6 +128,14 @@ contract TenderRegistry is
     function setZKPControllerAddress(address _zkp_controller) external onlyRole(DEFAULT_ADMIN_ROLE) {
         if (_zkp_controller == address(0)) revert ZeroAddressNotAllowed();
         zkp_controller_address = _zkp_controller;
+    }
+
+    /// @notice Set the ScoringOracle contract address
+    /// @dev Only callable by DEFAULT_ADMIN_ROLE. Required for winner validation.
+    /// @param _scoring_oracle Address of the deployed ScoringOracle contract
+    function setScoringOracleAddress(address _scoring_oracle) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (_scoring_oracle == address(0)) revert ZeroAddressNotAllowed();
+        scoring_oracle_address = _scoring_oracle;
     }
 
     // =========================================================================
@@ -191,13 +218,14 @@ contract TenderRegistry is
     }
 
     /// @notice Allot winner after ZKP-verified ML scoring
-    /// @dev Verifies ZKP proof before allotting. Only callable by ORACLE_ROLE (ML relay).
+    /// @dev SECURITY: Verifies ZKP proof BEFORE any state changes or fund locking.
+    ///      Validates that the proposed winner has the highest score among all bids.
+    ///      Only callable by ORACLE_ROLE (ML relay).
     ///      If ZKPController is not set, ZKP verification is skipped (dev mode).
-    ///      After allotment, BidEscrow should be called to lock winner stake and mark losers.
     /// @param tender_id ID of the tender
     /// @param winner Address of the winning contractor
     /// @param zkp_proof Serialized Groth16 proof from snarkjs
-    /// @param public_inputs Public inputs for ZKP verification
+    /// @param public_inputs Public inputs for ZKP verification [tender_id, bid_id, declared_score, ...]
     // @integration ML_SERVICE — triggered via backend after ML scoring
     function allotWinner(
         uint256 tender_id,
@@ -213,36 +241,69 @@ contract TenderRegistry is
     {
         if (winner == address(0)) revert ZeroAddressNotAllowed();
 
+        // SECURITY FIX 0: Fail-fast if BidEscrow is not configured
+        require(bid_escrow_address != address(0), "BidEscrow not configured");
+
         Tender storage tender = _getTenderStorage(tender_id);
 
-        // Tender must be CLOSED (bidding ended, scoring complete)
+        // SECURITY FIX 1: Validate tender is CLOSED (bidding ended, scoring complete)
         if (tender.status != TenderStatus.CLOSED) {
             revert TenderNotOpen(tender_id, tender.status);
         }
 
-        // WHY: ZKP verification ensures the ML scoring was done correctly
-        // and the declared winner actually had the highest legitimate score.
-        // If ZKPController is not deployed yet (Phase 1-5), we skip verification.
+        // SECURITY FIX 1b: Validate ALL bids have been scored before allotment
+        // Prevents partial-scoring attacks where an adversary triggers allotment
+        // before all bids are evaluated, potentially excluding the real winner.
+        _requireAllBidsScored(tender_id);
+
+        // SECURITY FIX 2: Verify ZKP proof BEFORE any state changes
+        // CRITICAL: Uses typed interface call (NOT staticcall) because verifyScoreProof
+        // modifies state (nullifier tracking in Groth16Verifier). staticcall would
+        // silently fail on any state modification, breaking ZKP verification entirely.
         if (zkp_controller_address != address(0)) {
-            // Call ZKPController to verify the score integrity proof
-            // The proof validates: score == f(bid_amount, rating, completion, boost)
-            (bool success,) = zkp_controller_address.staticcall(
-                abi.encodeWithSignature(
-                    "verifyScoreProof(uint256,uint256,bytes,uint256[])",
-                    tender_id,
-                    0, // bid_id placeholder — will be passed properly in integration
-                    zkp_proof,
-                    public_inputs
-                )
+            require(public_inputs.length >= 3, "Insufficient public inputs");
+
+            uint256 winning_bid_id = public_inputs[1]; // bid_id from public inputs
+            uint256 declared_score = public_inputs[2]; // declared_score from public inputs
+
+            // Typed interface call — NOT staticcall. verifyScoreProof writes nullifiers.
+            bool zkp_valid = IZKPController(zkp_controller_address).verifyScoreProof(
+                tender_id,
+                winning_bid_id,
+                zkp_proof,
+                public_inputs
             );
-            if (!success) revert InvalidZKProof(0);
+            if (!zkp_valid) revert InvalidZKProof(winning_bid_id);
+
+            // SECURITY FIX 3: Validate winner has highest score among all bids
+            address actual_winner = _validateHighestScore(tender_id, winning_bid_id, declared_score);
+            if (actual_winner != winner) {
+                revert InvalidWinner(winner, actual_winner);
+            }
+
+            // Store the winning bid_id for reference
+            mapping_winning_bids[tender_id] = winning_bid_id;
+        } else {
+            // Dev mode: skip ZKP verification but still validate winner has highest score
+            if (scoring_oracle_address != address(0)) {
+                address actual_winner = _validateHighestScoreByOracle(tender_id);
+                if (actual_winner != winner) {
+                    revert InvalidWinner(winner, actual_winner);
+                }
+            }
         }
 
-        // Checks-effects: update state before any cross-contract calls
+        // SECURITY FIX 4: Only NOW update state after all validations pass
+        // Follows Checks-Effects-Interactions pattern strictly.
         tender.status = TenderStatus.ALLOTTED;
         mapping_winners[tender_id] = winner;
 
-        emit WinnerAllotted(tender_id, winner, 0);
+        // SECURITY FIX 5: Lock winner's stake and mark losers AFTER validation
+        // Interactions phase: external calls only after all state changes.
+        IBidEscrow(bid_escrow_address).lockWinnerStake(tender_id, winner);
+        IBidEscrow(bid_escrow_address).markLosers(tender_id, winner);
+
+        emit WinnerAllotted(tender_id, winner, mapping_winning_bids[tender_id]);
     }
 
     // =========================================================================
@@ -309,6 +370,114 @@ contract TenderRegistry is
     function _requireTenderExists(uint256 tender_id) internal view {
         if (tender_id == 0 || tender_id > _tender_count) {
             revert TenderNotFound(tender_id);
+        }
+    }
+
+    /// @dev Validates that the specified bid has the highest score for the tender
+    /// @param tender_id ID of the tender
+    /// @param winning_bid_id ID of the proposed winning bid
+    /// @param declared_score The score declared in the ZKP public inputs
+    /// @return The address of the actual highest-scoring contractor
+    function _validateHighestScore(
+        uint256 tender_id,
+        uint256 winning_bid_id,
+        uint256 declared_score
+    ) internal view returns (address) {
+        if (bid_escrow_address == address(0)) {
+            revert ZeroAddressNotAllowed();
+        }
+
+        uint256[] memory bid_ids = IBidEscrow(bid_escrow_address).getBidsByTender(tender_id);
+        uint256 highest_score = 0;
+        address highest_scorer = address(0);
+
+        // Iterate through all bids to find the highest score
+        for (uint256 i = 0; i < bid_ids.length; i++) {
+            uint256 bid_id = bid_ids[i];
+            Bid memory bid = IBidEscrow(bid_escrow_address).getBid(bid_id);
+
+            // Skip bids that are not in PENDING status
+            if (bid.status != BidStatus.PENDING) continue;
+
+            uint256 score = 0;
+            if (scoring_oracle_address != address(0)) {
+                score = IScoringOracle(scoring_oracle_address).getScore(bid_id);
+            }
+
+            if (score > highest_score) {
+                highest_score = score;
+                highest_scorer = bid.contractor;
+            }
+        }
+
+        // Validate that the declared score matches the recorded score
+        uint256 recorded_score = 0;
+        if (scoring_oracle_address != address(0)) {
+            recorded_score = IScoringOracle(scoring_oracle_address).getScore(winning_bid_id);
+        }
+
+        if (recorded_score != declared_score) {
+            revert ScoreMismatch(recorded_score, declared_score);
+        }
+
+        // Verify the winning bid belongs to the highest scorer
+        Bid memory winning_bid = IBidEscrow(bid_escrow_address).getBid(winning_bid_id);
+        if (winning_bid.contractor != highest_scorer) {
+            revert InvalidWinner(winning_bid.contractor, highest_scorer);
+        }
+
+        return highest_scorer;
+    }
+
+    /// @dev Validates that the winner has the highest score using ScoringOracle
+    /// @param tender_id ID of the tender
+    /// @return The address of the actual highest-scoring contractor
+    function _validateHighestScoreByOracle(uint256 tender_id) internal view returns (address) {
+        if (bid_escrow_address == address(0) || scoring_oracle_address == address(0)) {
+            revert ZeroAddressNotAllowed();
+        }
+
+        uint256[] memory bid_ids = IBidEscrow(bid_escrow_address).getBidsByTender(tender_id);
+        uint256 highest_score = 0;
+        address highest_scorer = address(0);
+
+        // Iterate through all bids to find the highest score
+        for (uint256 i = 0; i < bid_ids.length; i++) {
+            uint256 bid_id = bid_ids[i];
+            Bid memory bid = IBidEscrow(bid_escrow_address).getBid(bid_id);
+
+            // Skip bids that are not in PENDING status
+            if (bid.status != BidStatus.PENDING) continue;
+
+            uint256 score = IScoringOracle(scoring_oracle_address).getScore(bid_id);
+
+            if (score > highest_score) {
+                highest_score = score;
+                highest_scorer = bid.contractor;
+            }
+        }
+
+        return highest_scorer;
+    }
+
+    /// @dev Validates that ALL bids for a tender have been scored
+    /// @param tender_id ID of the tender
+    function _requireAllBidsScored(uint256 tender_id) internal view {
+        if (scoring_oracle_address == address(0)) return; // Skip in dev mode
+
+        uint256[] memory bid_ids = IBidEscrow(bid_escrow_address).getBidsByTender(tender_id);
+        uint256 len = bid_ids.length;
+        for (uint256 i = 0; i < len;) {
+            uint256 bid_id = bid_ids[i];
+            Bid memory bid = IBidEscrow(bid_escrow_address).getBid(bid_id);
+
+            // Only check PENDING bids (withdrawn bids don't need scores)
+            if (bid.status == BidStatus.PENDING) {
+                uint256 score = IScoringOracle(scoring_oracle_address).getScore(bid_id);
+                require(score > 0, "Not all bids scored yet");
+            }
+
+            unchecked { ++i; }
         }
     }
 }

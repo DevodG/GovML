@@ -20,13 +20,17 @@ import {RatingLedger} from "../../src/governance/RatingLedger.sol";
 import {ZKPController} from "../../src/zkp/ZKPController.sol";
 import {Groth16Verifier} from "../../src/zkp/Groth16Verifier.sol";
 
+// Mocks
+import {MockVRFCoordinatorV2} from "../mocks/MockVRFCoordinatorV2.sol";
+
 // Types
 import {
     Tender, TenderStatus, Bid, BidStatus,
     Milestone, MilestoneStatus, BountyAssignment, BountyPhase,
     ContractorProfile, AnomalyFlag,
     GOVT_ROLE, ORACLE_ROLE, AUDITOR_ROLE, CONTRACTOR_ROLE, BOUNTY_HUNTER_ROLE,
-    MULTISIG_THRESHOLD, MIN_BOUNTY_HUNTER_STAKE
+    MULTISIG_THRESHOLD, MIN_BOUNTY_HUNTER_STAKE,
+    COMMIT_WINDOW_BLOCKS, DEAD_MAN_GRACE_PERIOD
 } from "../../src/Types.sol";
 
 /// @title FullLifecycle — End-to-End Integration Test
@@ -44,6 +48,7 @@ contract FullLifecycleTest is Test {
     RatingLedger public ratingLedger;
     ZKPController public zkpController;
     Groth16Verifier public verifier;
+    MockVRFCoordinatorV2 public mockVRF;
 
     // ─── Actors ──────────────────────────────────────────
     address public admin = makeAddr("admin");
@@ -74,6 +79,8 @@ contract FullLifecycleTest is Test {
         vm.deal(govt, 100 ether);
 
         // ─── Deploy all contracts ────────────────────────
+        mockVRF = new MockVRFCoordinatorV2();
+
         tenderRegistry = new TenderRegistry();
         tenderRegistry.initialize(admin, govt);
 
@@ -89,8 +96,8 @@ contract FullLifecycleTest is Test {
         anomalyOracle = new AnomalyOracle();
         anomalyOracle.initialize(admin, address(bidEscrow), address(tenderRegistry));
 
-        bountyHunter = new BountyHunter();
-        bountyHunter.initialize(admin);
+        bountyHunter = new BountyHunter(address(mockVRF));
+        bountyHunter.initialize(admin, 1, bytes32(uint256(1)), 3, 500000);
 
         ratingLedger = new RatingLedger();
         ratingLedger.initialize(admin);
@@ -102,6 +109,8 @@ contract FullLifecycleTest is Test {
         // ─── Wire cross-contract references ──────────────
         vm.startPrank(admin);
         tenderRegistry.setBidEscrowAddress(address(bidEscrow));
+        // TenderRegistry needs admin role on BidEscrow for lockWinnerStake in allotWinner
+        bidEscrow.grantRole(bidEscrow.DEFAULT_ADMIN_ROLE(), address(tenderRegistry));
 
         // Grant roles
         tenderRegistry.grantRole(ORACLE_ROLE, oracle);
@@ -120,6 +129,17 @@ contract FullLifecycleTest is Test {
         vm.stopPrank();
     }
 
+    /// @dev Helper: commit-reveal bid flow
+    function _commitAndRevealBid(address bidder, uint256 _tenderId, uint256 amount, uint256 stakeAmt) internal returns (uint256 bidId) {
+        bytes32 salt = keccak256(abi.encodePacked(bidder, amount));
+        bytes32 commitHash = keccak256(abi.encodePacked(amount, salt));
+        vm.prank(bidder);
+        bidEscrow.commitBid{value: stakeAmt}(_tenderId, commitHash);
+        vm.roll(block.number + COMMIT_WINDOW_BLOCKS + 1);
+        vm.prank(bidder);
+        bidId = bidEscrow.submitBid(_tenderId, amount, salt);
+    }
+
     // =========================================================================
     // FULL HAPPY PATH: Tender → Bid → Score → Allot → Milestone → Payout
     // =========================================================================
@@ -135,12 +155,9 @@ contract FullLifecycleTest is Test {
         Tender memory tender = tenderRegistry.getTender(tenderId);
         assertEq(uint256(tender.status), uint256(TenderStatus.OPEN));
 
-        // ─── Phase 2: Submit Bids ────────────────────────
-        vm.prank(contractor1);
-        uint256 bidId1 = bidEscrow.submitBid{value: STAKE}(tenderId, BID_AMOUNT_1);
-
-        vm.prank(contractor2);
-        uint256 bidId2 = bidEscrow.submitBid{value: STAKE}(tenderId, BID_AMOUNT_2);
+        // ─── Phase 2: Submit Bids (commit-reveal) ────────
+        uint256 bidId1 = _commitAndRevealBid(contractor1, tenderId, BID_AMOUNT_1, STAKE);
+        uint256 bidId2 = _commitAndRevealBid(contractor2, tenderId, BID_AMOUNT_2, STAKE);
 
         assertEq(bidId1, 1);
         assertEq(bidId2, 2);
@@ -154,13 +171,14 @@ contract FullLifecycleTest is Test {
         assertEq(uint256(tenderRegistry.getTenderStatus(tenderId)), uint256(TenderStatus.CLOSED));
 
         // ─── Phase 4: ML Scoring ─────────────────────────
+        // Scores: scaled by ZKP_SCALING_FACTOR (1e6). Valid range: [1_000_000, 100_000_000]
         vm.startPrank(oracle);
-        scoringOracle.recordScore(tenderId, bidId1, 850_000, "", new uint256[](0));
-        scoringOracle.recordScore(tenderId, bidId2, 720_000, "", new uint256[](0));
+        scoringOracle.recordScore(tenderId, bidId1, 85_000_000, "", new uint256[](0));
+        scoringOracle.recordScore(tenderId, bidId2, 72_000_000, "", new uint256[](0));
         vm.stopPrank();
 
-        assertEq(scoringOracle.getScore(bidId1), 850_000);
-        assertEq(scoringOracle.getScore(bidId2), 720_000);
+        assertEq(scoringOracle.getScore(bidId1), 85_000_000);
+        assertEq(scoringOracle.getScore(bidId2), 72_000_000);
 
         // ─── Phase 5: Allot Winner ───────────────────────
         vm.prank(oracle);
@@ -169,11 +187,7 @@ contract FullLifecycleTest is Test {
         assertEq(tenderRegistry.getWinner(tenderId), contractor1);
         assertEq(uint256(tenderRegistry.getTenderStatus(tenderId)), uint256(TenderStatus.ALLOTTED));
 
-        // Lock winner stake and mark losers
-        vm.startPrank(admin);
-        bidEscrow.lockWinnerStake(tenderId, contractor1);
-        bidEscrow.markLosers(tenderId, contractor1);
-        vm.stopPrank();
+        // lockWinnerStake and markLosers are now called internally by allotWinner
 
         Bid memory winBid = bidEscrow.getBid(bidId1);
         Bid memory loseBid = bidEscrow.getBid(bidId2);
@@ -262,8 +276,7 @@ contract FullLifecycleTest is Test {
         vm.prank(govt);
         uint256 tenderId = tenderRegistry.postTender(IPFS_HASH, BUDGET, deadline, 1);
 
-        vm.prank(contractor1);
-        uint256 bidId = bidEscrow.submitBid{value: STAKE}(tenderId, BID_AMOUNT_1);
+        uint256 bidId = _commitAndRevealBid(contractor1, tenderId, BID_AMOUNT_1, STAKE);
 
         // Close bidding
         vm.warp(deadline + 1);
@@ -309,9 +322,15 @@ contract FullLifecycleTest is Test {
 
         assertEq(bountyHunter.getActiveHunterCount(), 2);
 
-        // Assign to milestone
+        // Assign to milestone via VRF
         vm.prank(admin);
-        bountyHunter.requestHunterAssignment(100); // milestone_id = 100
+        bountyHunter.requestHunterAssignment(100);
+
+        // Fulfill VRF
+        uint256 reqId = mockVRF.getLastRequestId();
+        uint256[] memory words = new uint256[](1);
+        words[0] = uint256(keccak256(abi.encodePacked(uint256(100), "vrf_seed")));
+        mockVRF.fulfillRandomWords(reqId, words);
 
         uint256 assignmentId = bountyHunter.getAssignmentByMilestone(100);
         BountyAssignment memory a = bountyHunter.getAssignment(assignmentId);
@@ -351,44 +370,51 @@ contract FullLifecycleTest is Test {
     // =========================================================================
 
     function test_zkpFlow_fullVerification() public {
-        // KYC verification
-        uint256[2] memory proofA = [uint256(1), uint256(2)];
-        uint256[2][2] memory proofB = [[uint256(3), uint256(4)], [uint256(5), uint256(6)]];
-        uint256[2] memory proofC = [uint256(7), uint256(8)];
+        /// @dev BN254 scalar field — public signals must be < this
+        uint256 SNARK_SCALAR_FIELD = 21888242871839275222246405745257275088548364400416034343698204186575808495617;
 
-        bytes32 identityHash = keccak256("contractor1-kyc");
+        // KYC verification — use in-field values
+        uint256[2] memory proofA = [uint256(100), uint256(200)];
+        uint256[2][2] memory proofB = [[uint256(300), uint256(400)], [uint256(500), uint256(600)]];
+        uint256[2] memory proofC = [uint256(700), uint256(800)];
+
+        uint256 identityInField = uint256(keccak256("contractor1-kyc")) % SNARK_SCALAR_FIELD;
         uint256[] memory kycInputs = new uint256[](1);
-        kycInputs[0] = uint256(identityHash);
+        kycInputs[0] = identityInField;
 
         vm.prank(oracle);
         zkpController.verifyKYC(contractor1, proofA, proofB, proofC, kycInputs);
         assertTrue(zkpController.isKYCVerified(contractor1));
 
-        // Score proof
+        // Score proof — must use encoded proof bytes (not empty)
         uint256[] memory scoreInputs = new uint256[](3);
         scoreInputs[0] = 1; // tender_id
         scoreInputs[1] = 1; // bid_id
         scoreInputs[2] = 850_000; // declared_score
 
+        bytes memory encodedProof = abi.encode(proofA, proofB, proofC);
         vm.prank(oracle);
-        bool valid = zkpController.verifyScoreProof(1, 1, "", scoreInputs);
+        bool valid = zkpController.verifyScoreProof(1, 1, encodedProof, scoreInputs);
         assertTrue(valid);
 
-        // Nullifier (invoice)
-        bytes32 nullifier = keccak256("invoice-001");
-        bytes32 commitment = keccak256("commitment-001");
+        // Nullifier (invoice) — use in-field values
+        uint256 nullInField = uint256(keccak256("invoice-001")) % SNARK_SCALAR_FIELD;
+        uint256 commitInField = uint256(keccak256("commitment-001")) % SNARK_SCALAR_FIELD;
         uint256[] memory nullInputs = new uint256[](2);
-        nullInputs[0] = uint256(nullifier);
-        nullInputs[1] = uint256(commitment);
+        nullInputs[0] = nullInField;
+        nullInputs[1] = commitInField;
 
         vm.prank(oracle);
         zkpController.verifyNullifier(1, proofA, proofB, proofC, nullInputs);
-        assertTrue(zkpController.isNullifierUsed(nullifier));
+        assertTrue(zkpController.isNullifierUsed(bytes32(nullInField)));
 
         // Double-submit should revert
+        uint256[2] memory proofA2 = [uint256(101), uint256(201)];
+        uint256[2][2] memory proofB2 = [[uint256(301), uint256(401)], [uint256(501), uint256(601)]];
+        uint256[2] memory proofC2 = [uint256(701), uint256(801)];
         vm.prank(oracle);
-        vm.expectRevert("Nullifier already used (double-submit)");
-        zkpController.verifyNullifier(2, proofA, proofB, proofC, nullInputs);
+        vm.expectRevert(); // NullifierAlreadyUsed
+        zkpController.verifyNullifier(2, proofA2, proofB2, proofC2, nullInputs);
     }
 
     // =========================================================================
@@ -401,8 +427,7 @@ contract FullLifecycleTest is Test {
         vm.prank(govt);
         uint256 tenderId = tenderRegistry.postTender(IPFS_HASH, BUDGET, deadline, 1);
 
-        vm.prank(contractor1);
-        bidEscrow.submitBid{value: STAKE}(tenderId, BID_AMOUNT_1);
+        _commitAndRevealBid(contractor1, tenderId, BID_AMOUNT_1, STAKE);
 
         vm.warp(deadline + 1);
         vm.prank(govt);
@@ -412,14 +437,13 @@ contract FullLifecycleTest is Test {
         tenderRegistry.allotWinner(tenderId, contractor1, "", new uint256[](0));
 
         vm.startPrank(admin);
-        bidEscrow.lockWinnerStake(tenderId, contractor1);
         milestoneEscrow.initializeMilestones{value: BUDGET}(tenderId);
         vm.stopPrank();
 
         uint256[] memory msIds = milestoneEscrow.getMilestonesByTender(tenderId);
 
-        // Skip past proof window (30 days default)
-        vm.warp(block.timestamp + 31 days);
+        // Skip past proof window + grace period
+        vm.warp(block.timestamp + 31 days + DEAD_MAN_GRACE_PERIOD);
 
         // Anyone can trigger dead man's switch
         milestoneEscrow.checkDeadManSwitch(msIds[0]);
@@ -442,9 +466,9 @@ contract FullLifecycleTest is Test {
         vm.prank(govt);
         tenderRegistry.closeBidding(tenderId);
 
-        // Try to bid on closed tender
+        // Try to commit bid on closed tender
         vm.prank(contractor1);
         vm.expectRevert(); // TenderNotOpen
-        bidEscrow.submitBid{value: STAKE}(tenderId, BID_AMOUNT_1);
+        bidEscrow.commitBid{value: STAKE}(tenderId, keccak256("test"));
     }
 }

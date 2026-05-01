@@ -13,7 +13,9 @@ import {
     TenderStatus,
     GOVT_ROLE,
     ORACLE_ROLE,
-    CONTRACTOR_ROLE
+    CONTRACTOR_ROLE,
+    COMMIT_WINDOW_BLOCKS,
+    REVEAL_WINDOW_BLOCKS
 } from "../Types.sol";
 import {
     TenderNotFound,
@@ -26,7 +28,11 @@ import {
     ContractorIsFrozen,
     ZeroAddressNotAllowed,
     RefundAlreadyClaimed,
-    TransferFailed
+    TransferFailed,
+    BidCommitNotFound,
+    BidCommitRevealMismatch,
+    CommitWindowClosed,
+    RevealWindowInvalid
 } from "../Types.sol";
 import {IBidEscrow} from "../interfaces/IBidEscrow.sol";
 
@@ -74,11 +80,27 @@ contract BidEscrow is
     uint256 public min_bid_stake;
 
     // =========================================================================
+    // COMMIT-REVEAL STATE (Vuln 2 fix — prevents front-running)
+    // =========================================================================
+
+    /// @notice Stores commit hashes per tender per contractor
+    /// @dev mapping_bid_commits[tender_id][contractor] => commit_hash
+    mapping(uint256 => mapping(address => bytes32)) private mapping_bid_commits;
+
+    /// @notice Stores the block number when the commit was made
+    /// @dev mapping_commit_block[tender_id][contractor] => block.number at commit time
+    mapping(uint256 => mapping(address => uint256)) private mapping_commit_block;
+
+    /// @notice Stores the ETH staked during commit phase (held until reveal)
+    /// @dev mapping_commit_stake[tender_id][contractor] => stake amount
+    mapping(uint256 => mapping(address => uint256)) private mapping_commit_stake;
+
+    // =========================================================================
     // STORAGE GAP — Reserve slots for future upgrades
     // =========================================================================
 
-    /// @dev Reserved storage gap for future variable additions
-    uint256[44] private __gap;
+    /// @dev Reserved storage gap for future variable additions (reduced from 44 for new state vars)
+    uint256[41] private __gap;
 
     // =========================================================================
     // INITIALIZER
@@ -127,25 +149,21 @@ contract BidEscrow is
     // EXTERNAL FUNCTIONS
     // =========================================================================
 
-    /// @notice Submit a bid on a tender with ETH stake
-    /// @dev Contractor must send ETH as stake via msg.value. Validates:
-    ///      1. Tender exists and is OPEN
-    ///      2. Bidding deadline has not passed
-    ///      3. Stake meets minimum requirement
-    ///      4. Contractor hasn't already bid on this tender
+    /// @notice Phase 1 of commit-reveal: Commit a hash of (amount + salt)
+    /// @dev SECURITY (Vuln 2): Prevents front-running by hiding the bid amount.
+    ///      Contractors must commit a hash first, then reveal the actual amount + salt
+    ///      in a later block window. The ETH stake is locked at commit time.
+    ///      commit_hash = keccak256(abi.encodePacked(amount, salt))
     /// @param tender_id ID of the tender to bid on
-    /// @param amount Proposed project cost in wei
-    /// @return bid_id The ID of the newly created bid
+    /// @param commit_hash Hash of (amount, salt) — revealed later
     // @integration FRONTEND — called via ethers.js (payable)
-    function submitBid(uint256 tender_id, uint256 amount)
+    function commitBid(uint256 tender_id, bytes32 commit_hash)
         external
         payable
-        override
         whenNotPaused
         nonReentrant
-        returns (uint256 bid_id)
     {
-        // Validate tender state by calling TenderRegistry
+        // Validate tender state
         _requireTenderOpenAndActive(tender_id);
 
         // Ensure sufficient stake
@@ -153,32 +171,84 @@ contract BidEscrow is
             revert InsufficientStake(msg.value, min_bid_stake);
         }
 
-        // Prevent duplicate bids from same contractor on same tender
+        // Prevent duplicate commits
         if (mapping_has_bid[tender_id][msg.sender]) {
             revert DuplicateBid(tender_id, msg.sender);
         }
+        require(mapping_bid_commits[tender_id][msg.sender] == bytes32(0), "Already committed");
+        require(commit_hash != bytes32(0), "Empty commit hash");
 
-        // Increment counter (1-indexed)
+        // Store commit
+        mapping_bid_commits[tender_id][msg.sender] = commit_hash;
+        mapping_commit_block[tender_id][msg.sender] = block.number;
+        mapping_commit_stake[tender_id][msg.sender] = msg.value;
+
+        emit BidCommitted(tender_id, msg.sender, commit_hash, block.number);
+    }
+
+    /// @notice Phase 2 of commit-reveal: Reveal the bid amount and salt
+    /// @dev SECURITY (Vuln 2): Must be called in the reveal window (COMMIT_WINDOW_BLOCKS
+    ///      after commit, within REVEAL_WINDOW_BLOCKS). Verifies the hash matches the commit.
+    ///      Creates the actual Bid struct and records it on-chain.
+    /// @param tender_id ID of the tender
+    /// @param amount Proposed project cost in wei (must match committed hash)
+    /// @param salt The salt used in the commit hash
+    /// @return bid_id The ID of the newly created bid
+    // @integration FRONTEND — called via ethers.js
+    function submitBid(uint256 tender_id, uint256 amount, bytes32 salt)
+        external
+        whenNotPaused
+        nonReentrant
+        returns (uint256 bid_id)
+    {
+        // Validate commit exists
+        bytes32 stored_commit = mapping_bid_commits[tender_id][msg.sender];
+        if (stored_commit == bytes32(0)) {
+            revert BidCommitNotFound(tender_id, msg.sender);
+        }
+
+        // Validate reveal window: must be after COMMIT_WINDOW_BLOCKS, within REVEAL_WINDOW_BLOCKS
+        uint256 commit_block = mapping_commit_block[tender_id][msg.sender];
+        uint256 reveal_start = commit_block + COMMIT_WINDOW_BLOCKS;
+        uint256 reveal_end = reveal_start + REVEAL_WINDOW_BLOCKS;
+
+        if (block.number < reveal_start || block.number > reveal_end) {
+            revert RevealWindowInvalid(tender_id, reveal_start, reveal_end);
+        }
+
+        // Verify commit hash matches
+        bytes32 computed_hash = keccak256(abi.encodePacked(amount, salt));
+        if (computed_hash != stored_commit) {
+            revert BidCommitRevealMismatch(tender_id, msg.sender);
+        }
+
+        // Retrieve staked ETH from commit phase
+        uint256 stake = mapping_commit_stake[tender_id][msg.sender];
+
+        // Clear commit data (checks-effects)
+        mapping_bid_commits[tender_id][msg.sender] = bytes32(0);
+        mapping_commit_block[tender_id][msg.sender] = 0;
+        mapping_commit_stake[tender_id][msg.sender] = 0;
+
+        // Create the bid
         _bid_count++;
         bid_id = _bid_count;
 
-        // Store the bid — ETH is held by this contract
         mapping_bids[bid_id] = Bid({
             id: bid_id,
             tender_id: tender_id,
             contractor: msg.sender,
             status: BidStatus.PENDING,
             amount: amount,
-            stake: msg.value,
-            score_commitment: bytes32(0), // Set later by ScoringOracle
+            stake: stake,
+            score_commitment: bytes32(0),
             submitted_at: block.timestamp
         });
 
-        // Track bid for this tender
         mapping_tender_bids[tender_id].push(bid_id);
         mapping_has_bid[tender_id][msg.sender] = true;
 
-        emit BidSubmitted(tender_id, msg.sender, bid_id, amount, msg.value, block.timestamp);
+        emit BidSubmitted(tender_id, msg.sender, bid_id, amount, stake, block.timestamp);
     }
 
     /// @notice Withdraw a bid before the bidding deadline
@@ -394,6 +464,26 @@ contract BidEscrow is
         if (block.timestamp >= tender.deadline) {
             revert BiddingDeadlinePassed(tender_id, tender.deadline);
         }
+    }
+
+    // =========================================================================
+    // COMMIT-REVEAL VIEW FUNCTIONS
+    // =========================================================================
+
+    /// @notice Get the commit hash for a contractor's pending bid
+    /// @param tender_id ID of the tender
+    /// @param contractor Address of the contractor
+    /// @return The stored commit hash (bytes32(0) if no commit)
+    function getCommitHash(uint256 tender_id, address contractor) external view returns (bytes32) {
+        return mapping_bid_commits[tender_id][contractor];
+    }
+
+    /// @notice Get the block number when a commit was made
+    /// @param tender_id ID of the tender
+    /// @param contractor Address of the contractor
+    /// @return The commit block number (0 if no commit)
+    function getCommitBlock(uint256 tender_id, address contractor) external view returns (uint256) {
+        return mapping_commit_block[tender_id][contractor];
     }
 
     /// @dev Allow the contract to receive ETH (for bid stakes)

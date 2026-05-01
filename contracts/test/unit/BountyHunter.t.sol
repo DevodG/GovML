@@ -3,6 +3,7 @@ pragma solidity ^0.8.28;
 
 import {Test, console2} from "forge-std/Test.sol";
 import {BountyHunter} from "../../src/governance/BountyHunter.sol";
+import {MockVRFCoordinatorV2} from "../mocks/MockVRFCoordinatorV2.sol";
 import {
     BountyAssignment,
     BountyPhase,
@@ -31,6 +32,7 @@ contract BountyHunterTest is Test {
     event HunterSlashed(address indexed hunter, uint256 slash_amount, string reason);
 
     BountyHunter public bounty;
+    MockVRFCoordinatorV2 public mockVRF;
 
     address public admin = makeAddr("admin");
     address public hunter1 = makeAddr("hunter1");
@@ -38,9 +40,16 @@ contract BountyHunterTest is Test {
     address public hunter3 = makeAddr("hunter3");
     address public randomUser = makeAddr("randomUser");
 
+    // VRF config for tests
+    uint64 constant SUB_ID = 1;
+    bytes32 constant KEY_HASH = bytes32(uint256(1));
+    uint16 constant CONFIRMATIONS = 3;
+    uint32 constant CALLBACK_GAS = 500000;
+
     function setUp() public {
-        bounty = new BountyHunter();
-        bounty.initialize(admin);
+        mockVRF = new MockVRFCoordinatorV2();
+        bounty = new BountyHunter(address(mockVRF));
+        bounty.initialize(admin, SUB_ID, KEY_HASH, CONFIRMATIONS, CALLBACK_GAS);
 
         vm.deal(hunter1, 10 ether);
         vm.deal(hunter2, 10 ether);
@@ -64,6 +73,13 @@ contract BountyHunterTest is Test {
     function _assignAndGetId(uint256 milestone_id) internal returns (uint256) {
         vm.prank(admin);
         bounty.requestHunterAssignment(milestone_id);
+
+        // Fulfill VRF with a deterministic random word
+        uint256 reqId = mockVRF.getLastRequestId();
+        uint256[] memory words = new uint256[](1);
+        words[0] = uint256(keccak256(abi.encodePacked(milestone_id, "vrf_seed")));
+        mockVRF.fulfillRandomWords(reqId, words);
+
         return bounty.getAssignmentByMilestone(milestone_id);
     }
 
@@ -134,8 +150,13 @@ contract BountyHunterTest is Test {
         _registerTwoHunters();
 
         vm.prank(admin);
-        // We can't predict which hunters get selected, so just check it doesn't revert
         bounty.requestHunterAssignment(100);
+
+        // Fulfill VRF
+        uint256 reqId = mockVRF.getLastRequestId();
+        uint256[] memory words = new uint256[](1);
+        words[0] = uint256(keccak256(abi.encodePacked(uint256(100), "vrf_seed")));
+        mockVRF.fulfillRandomWords(reqId, words);
 
         assertEq(bounty.getAssignmentByMilestone(100), 1);
     }

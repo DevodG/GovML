@@ -64,6 +64,14 @@ interface IMilestoneEscrow {
         address triggered_by
     );
 
+    /// @notice Emitted when admin grants a one-time 7-day extension
+    // @integration BACKEND_EVENT_LISTENER — subscribe to track extensions
+    event ExtensionGranted(
+        uint256 indexed milestone_id,
+        uint256 new_proof_window,
+        address granted_by
+    );
+
     // =========================================================================
     // EXTERNAL FUNCTIONS
     // =========================================================================
