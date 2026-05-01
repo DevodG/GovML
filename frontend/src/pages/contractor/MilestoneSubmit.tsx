@@ -1,12 +1,14 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Card } from '../../components/ui'
 import { Upload, MapPin, CheckCircle, Loader2 } from 'lucide-react'
+import { useSubmitMilestone } from '../../hooks/useContractWrite'
 
 const activeMilestones = [
   { id: 'M-001', tender: 'NH-48 Road Repair', name: 'Foundation Work', pct: 30, amount: 12600000, dueDate: '2024-04-20' },
 ]
 
 export default function MilestoneSubmit() {
+  const submitMilestone = useSubmitMilestone()
   const [uploading, setUploading] = useState(false)
   const [uploaded, setUploaded] = useState(false)
   const [submitting, setSubmitting] = useState(false)
@@ -17,9 +19,20 @@ export default function MilestoneSubmit() {
     setTimeout(() => { setUploading(false); setUploaded(true) }, 1800)
   }
 
+  // Watch for tx success
+  useEffect(() => {
+    if (submitMilestone.isSuccess) {
+      setSubmitting(false)
+      setDone(true)
+    }
+  }, [submitMilestone.isSuccess])
+
   const handleSubmit = () => {
     setSubmitting(true)
-    setTimeout(() => { setSubmitting(false); setDone(true) }, 2500)
+    // Call MilestoneEscrow.submitMilestoneProof() on-chain
+    const ipfsHash = '0x' + 'a'.repeat(64) as `0x${string}` // placeholder — real flow: upload to IPFS first
+    const gpsHash = '0x' + 'b'.repeat(64) as `0x${string}` // hashed GPS coords
+    submitMilestone.write(BigInt(1), BigInt(0), ipfsHash, gpsHash)
   }
 
   return (

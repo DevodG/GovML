@@ -1,19 +1,41 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Card } from '../../components/ui'
 import { formatINR } from '../../lib/format'
 import { Wallet, Loader2, ExternalLink, ShieldCheck } from 'lucide-react'
+import { useCommitBid, computeBidCommitHash, generateSalt } from '../../hooks/useContractWrite'
+import { useKYCStatus } from '../../hooks/useContractData'
+import { useAccount } from 'wagmi'
 
 export default function BidSubmission() {
   const [amount, setAmount] = useState(41000000)
   const [stakePercent, setStakePercent] = useState(5)
   const [step, setStep] = useState<'form' | 'pending' | 'done'>('form')
 
+  const { address } = useAccount()
+  const commitBid = useCommitBid()
+  const { data: isKYCVerified } = useKYCStatus(address as `0x${string}` | undefined)
+
   const stakeAmount = (amount * stakePercent) / 100
-  const stakeMATIC = (stakeAmount / 3500000).toFixed(4)
+  const stakeETH = (stakeAmount / 350000000).toFixed(6) // simplified conversion
+
+  // Watch for tx success
+  useEffect(() => {
+    if (commitBid.isSuccess) {
+      setStep('done')
+    }
+  }, [commitBid.isSuccess])
 
   const handleSubmit = () => {
     setStep('pending')
-    setTimeout(() => setStep('done'), 3000)
+    // Commit-reveal Phase 1: generate salt, hash, and commit on-chain
+    const salt = generateSalt()
+    const amountWei = BigInt(amount) * BigInt(1e12) // scale to wei
+    const commitHash = computeBidCommitHash(amountWei, salt)
+    // Store salt for Phase 2 reveal
+    localStorage.setItem(`bid-salt-${1}`, salt)
+    localStorage.setItem(`bid-amount-${1}`, amountWei.toString())
+    // Call BidEscrow.commitBid() with ETH stake
+    commitBid.write(BigInt(1), commitHash, stakeETH)
   }
 
   return (
@@ -38,7 +60,7 @@ export default function BidSubmission() {
             <ShieldCheck size={40} className="text-[#1D9E75]" />
           </div>
           <h2 className="text-xl font-bold text-[#E8EDF5]">Bid Submitted On-Chain</h2>
-          <p className="text-sm text-[#8B95A8]">Your bid of {formatINR(amount)} with {stakeMATIC} MATIC stake is locked in escrow.</p>
+          <p className="text-sm text-[#8B95A8]">Your bid of {formatINR(amount)} with {stakeETH} ETH stake is locked in escrow.</p>
           <div className="bg-[#0A0C10] border border-[#1E2530] rounded-lg p-3 text-xs font-mono text-left space-y-1">
             <div className="text-[#4A5568]">tx_hash:</div>
             <div className="text-[#3B8BD4]">0x7f3a21bc4e8d...9f21</div>
@@ -62,7 +84,7 @@ export default function BidSubmission() {
           <div>
             <div className="flex justify-between mb-1.5">
               <label className="text-xs text-[#8B95A8]">Stake Percentage</label>
-              <span className="text-xs font-mono text-[#EF9F27]">{stakePercent}% = {stakeMATIC} MATIC</span>
+              <span className="text-xs font-mono text-[#EF9F27]">{stakePercent}% = {stakeETH} ETH</span>
             </div>
             <input type="range" min={3} max={15} value={stakePercent} onChange={e => setStakePercent(Number(e.target.value))}
               className="w-full accent-[#EF9F27]" />
@@ -76,7 +98,7 @@ export default function BidSubmission() {
             </div>
             <div className="flex justify-between">
               <span className="text-[#8B95A8]">Required Stake</span>
-              <span className="font-mono text-[#EF9F27]">{stakeMATIC} MATIC</span>
+              <span className="font-mono text-[#EF9F27]">{stakeETH} ETH</span>
             </div>
             <div className="flex justify-between border-t border-[#1E2530] pt-2">
               <span className="text-[#8B95A8]">ZKP Status</span>
@@ -88,7 +110,7 @@ export default function BidSubmission() {
             className="w-full bg-[#3B8BD4] hover:bg-[#2A75BB] disabled:opacity-50 text-white font-semibold py-3 rounded-lg flex items-center justify-center gap-2 transition-all text-base">
             {step === 'pending'
               ? <><Loader2 size={20} className="animate-spin" />Awaiting MetaMask...</>
-              : <><Wallet size={20} />Submit Bid + Lock {stakeMATIC} MATIC</>}
+              : <><Wallet size={20} />Submit Bid + Lock {stakeETH} ETH</>}
           </button>
           <p className="text-xs text-center text-[#4A5568]">This will open MetaMask to confirm the on-chain transaction</p>
         </Card>

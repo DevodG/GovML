@@ -1,18 +1,19 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
+import { useAccount, useConnect, useSignMessage, useDisconnect } from 'wagmi'
+import { injected } from 'wagmi/connectors'
+import { isDemoMode } from '../config/contracts'
 import { Hero3D } from '../components/home/Hero3D'
 import { FeatureShowcase } from '../components/home/FeatureShowcase'
 import anime from 'animejs'
 import '../styles/home-animations.css'
-import { Building2, HardHat, Users, Shield, X, Eye, EyeOff, ArrowRight, ChevronRight } from 'lucide-react'
-
-const CREDS = { username: 'user123', password: '123' }
+import { Building2, HardHat, Users, Shield, X, ArrowRight, ChevronRight, Wallet, Loader2 } from 'lucide-react'
 
 const portals = [
-  { role: 'gov' as const, label: 'Government Authority', icon: Building2, color: '#3B8BD4', desc: 'Post tenders, review ML-scored bids, approve milestones and release funds on-chain.', path: '/gov' },
-  { role: 'contractor' as const, label: 'Contractor', icon: HardHat, color: '#1D9E75', desc: 'ZKP-verify identity, submit bids with MATIC stake, track milestones.', path: '/contractor' },
-  { role: 'public' as const, label: 'Public / Citizen', icon: Users, color: '#EF9F27', desc: 'Explore live tenders, fund flows, become a bounty hunter and earn MATIC.', path: '/public' },
+  { role: 'government' as const, label: 'Government Authority', icon: Building2, color: '#3B8BD4', desc: 'Post tenders, review ML-scored bids, approve milestones and release funds on-chain.', path: '/gov' },
+  { role: 'contractor' as const, label: 'Contractor', icon: HardHat, color: '#1D9E75', desc: 'ZKP-verify identity, submit bids with ETH stake, track milestones.', path: '/contractor' },
+  { role: 'public' as const, label: 'Public / Citizen', icon: Users, color: '#EF9F27', desc: 'Explore live tenders, fund flows, become a bounty hunter and earn ETH.', path: '/public' },
   { role: 'auditor' as const, label: 'Independent Auditor', icon: Shield, color: '#7F77DD', desc: 'Full audit access, AI-narrated anomaly reports, oracle signing.', path: '/auditor' },
 ]
 
@@ -55,20 +56,67 @@ function Counter({ end, suffix = '' }: { end: number; suffix?: string }) {
   return <span ref={ref}>0{suffix}</span>
 }
 
-/* ── Login Modal (takes selectedRole) ── */
-function LoginModal({ portal, onClose, onSuccess }: { portal: typeof portals[0]; onClose: () => void; onSuccess: (user: string) => void }) {
-  const [user, setUser] = useState(''); const [pass, setPass] = useState('')
-  const [show, setShow] = useState(false); const [err, setErr] = useState(''); const [loading, setLoading] = useState(false)
+/* ── Connect Modal (replaces LoginModal) ── */
+function ConnectModal({ portal, onClose, onSuccess }: { portal: typeof portals[0]; onClose: () => void; onSuccess: () => void }) {
+  const [err, setErr] = useState('')
+  const [step, setStep] = useState<'idle' | 'connecting' | 'signing' | 'done'>('idle')
   const modalRef = useRef<HTMLDivElement>(null)
+  const { address, isConnected } = useAccount()
+  const { connect, isPending: isConnecting } = useConnect()
+  const { signMessageAsync } = useSignMessage()
+  const { authenticateWithWallet, demoLogin } = useAuthStore()
+  const demo = isDemoMode()
 
   useEffect(() => {
     if (modalRef.current) anime({ targets: modalRef.current, scale: [0.9, 1], opacity: [0, 1], duration: 300, easing: 'easeOutCubic' })
   }, [])
 
-  const submit = () => {
-    if (user !== CREDS.username || pass !== CREDS.password) { setErr('Invalid credentials. Try user123 / 123'); return }
-    setLoading(true); setTimeout(() => { setLoading(false); onSuccess(user) }, 1200)
+  // Auto-trigger SIWE after wallet connects
+  useEffect(() => {
+    if (isConnected && address && step === 'connecting') {
+      handleSIWE()
+    }
+  }, [isConnected, address, step])
+
+  const handleConnect = async () => {
+    setErr('')
+    if (demo) {
+      // Demo mode — skip wallet, use mock auth
+      setStep('connecting')
+      demoLogin(portal.role)
+      setTimeout(() => onSuccess(), 500)
+      return
+    }
+
+    if (isConnected && address) {
+      // Already connected — go straight to SIWE
+      setStep('signing')
+      handleSIWE()
+    } else {
+      setStep('connecting')
+      try {
+        connect({ connector: injected() })
+      } catch (e) {
+        setErr(e instanceof Error ? e.message : 'Failed to connect wallet')
+        setStep('idle')
+      }
+    }
   }
+
+  const handleSIWE = async () => {
+    if (!address) return
+    setStep('signing')
+    try {
+      await authenticateWithWallet(address, signMessageAsync)
+      setStep('done')
+      onSuccess()
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'Signature verification failed')
+      setStep('idle')
+    }
+  }
+
+  const loading = step === 'connecting' || step === 'signing' || isConnecting
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(10px)' }}>
@@ -81,28 +129,28 @@ function LoginModal({ portal, onClose, onSuccess }: { portal: typeof portals[0];
             </div>
             <div>
               <h2 className="text-base font-bold text-[#E8EDF5]">{portal.label}</h2>
-              <p className="text-xs text-[#8B95A8]">Sign in to access this portal</p>
+              <p className="text-xs text-[#8B95A8]">{demo ? 'Demo mode — no wallet required' : 'Connect wallet to access this portal'}</p>
             </div>
             <button onClick={onClose} className="ml-auto"><X size={18} className="text-[#8B95A8] hover:text-[#E8EDF5]" /></button>
           </div>
         </div>
         <div className="p-6 space-y-4">
-          <div><label className="text-xs text-[#8B95A8] mb-1.5 block">Username</label>
-            <input value={user} onChange={e => setUser(e.target.value)} placeholder="user123"
-              className="w-full bg-[#151A22] border border-[#1E2530] rounded-lg px-3 py-2.5 text-sm text-[#E8EDF5] placeholder-[#4A5568] outline-none focus:border-[#3B8BD4]" /></div>
-          <div><label className="text-xs text-[#8B95A8] mb-1.5 block">Password</label>
-            <div className="relative">
-              <input type={show ? 'text' : 'password'} value={pass} onChange={e => setPass(e.target.value)} onKeyDown={e => e.key === 'Enter' && submit()} placeholder="••••••"
-                className="w-full bg-[#151A22] border border-[#1E2530] rounded-lg px-3 py-2.5 pr-10 text-sm text-[#E8EDF5] placeholder-[#4A5568] outline-none focus:border-[#3B8BD4]" />
-              <button onClick={() => setShow(!show)} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#4A5568]">{show ? <EyeOff size={16} /> : <Eye size={16} />}</button>
-            </div></div>
+          {isConnected && address && !demo && (
+            <div className="flex items-center gap-2 bg-[#151A22] border border-[#1E2530] rounded-lg px-3 py-2">
+              <div className="w-2 h-2 rounded-full bg-[#1D9E75]" />
+              <span className="text-xs font-mono text-[#E8EDF5]">{address.slice(0, 6)}...{address.slice(-4)}</span>
+              <span className="text-xs text-[#4A5568] ml-auto">Sepolia</span>
+            </div>
+          )}
           {err && <p className="text-xs text-[#D85A30]">{err}</p>}
-          <button onClick={submit} disabled={loading}
+          <button onClick={handleConnect} disabled={loading}
             className="w-full text-white font-semibold py-2.5 rounded-lg flex items-center justify-center gap-2 transition-all"
             style={{ background: portal.color }}>
-            {loading ? <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />Signing in...</> : <>Enter {portal.label.split(' ')[0]} Portal</>}
+            {loading
+              ? <><Loader2 size={18} className="animate-spin" />{step === 'signing' ? 'Confirming signature...' : 'Connecting wallet...'}</>
+              : <><Wallet size={18} />{demo ? `Enter ${portal.label.split(' ')[0]} Portal` : 'Connect Wallet'}</>}
           </button>
-          <p className="text-xs text-center text-[#4A5568]">Demo: <span className="text-[#8B95A8]">user123</span> / <span className="text-[#8B95A8]">123</span></p>
+          {demo && <p className="text-xs text-center text-[#4A5568]">Demo mode — contracts not configured</p>}
         </div>
       </div>
     </div>
@@ -112,23 +160,19 @@ function LoginModal({ portal, onClose, onSuccess }: { portal: typeof portals[0];
 /* ── Main Home ── */
 export default function Home() {
   const [selectedPortal, setSelectedPortal] = useState<typeof portals[0] | null>(null)
-  const { login, setRole } = useAuthStore()
   const navigate = useNavigate()
   const aboutRef = useAnimeReveal()
   const featRef = useAnimeReveal()
   const statsRef = useAnimeReveal()
   const portalRef = useAnimeReveal()
-  const ctaRef = useAnimeReveal()
 
   // Hero entry animation
   useEffect(() => {
     anime({ targets: '.hero-text', opacity: [0, 1], translateY: [60, 0], delay: anime.stagger(120), duration: 1000, easing: 'easeOutCubic' })
   }, [])
 
-  const handleLoginSuccess = (username: string) => {
+  const handleSuccess = () => {
     if (!selectedPortal) return
-    login(username)
-    setRole(selectedPortal.role)
     setSelectedPortal(null)
     navigate(selectedPortal.path)
   }
@@ -158,7 +202,7 @@ export default function Home() {
         <Hero3D />
         <div className="relative z-10 max-w-4xl mx-auto">
           <div className="hero-text inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-[#1D9E75]/30 bg-[#1D9E75]/10 text-xs text-[#1D9E75] font-semibold mb-8">
-            <div className="w-1.5 h-1.5 rounded-full bg-[#1D9E75] animate-pulse" />Live on Polygon Mumbai Testnet
+            <div className="w-1.5 h-1.5 rounded-full bg-[#1D9E75] animate-pulse" />Live on Ethereum Sepolia Testnet
           </div>
           <h1 className="hero-text text-5xl md:text-7xl font-bold tracking-tight leading-[1.05] mb-6" style={{ letterSpacing: '-0.03em' }}>
             The only tender platform<br />where corruption is<br /><span className="text-[#3B8BD4]">mathematically impossible.</span>
@@ -187,7 +231,7 @@ export default function Home() {
               <p className="stagger-child text-[#8B95A8] text-sm leading-relaxed">If a contractor ghosts, escrow auto-redistributes. The bid score is ZKP-verified. Fund release requires a randomly-selected public bounty hunter.</p>
             </div>
             <div className="grid grid-cols-2 gap-4">
-              {[{ label: 'Smart Contracts', value: '8', sub: 'Deployed on Polygon' },
+              {[{ label: 'Smart Contracts', value: '8', sub: 'Deployed on Sepolia' },
                 { label: 'Market Size', value: '₹8.4L Cr', sub: 'India Procurement' },
                 { label: 'Attack Vectors', value: '0', sub: 'Eliminated' },
                 { label: 'Transparency', value: '100%', sub: 'All state on-chain' },
@@ -214,12 +258,12 @@ export default function Home() {
         </div>
       </section>
 
-      {/* PORTAL CARDS — shown always, click opens login */}
+      {/* PORTAL CARDS — shown always, click opens connect */}
       <section id="portals" className="py-24 px-6 border-t border-[#1E2530]">
         <div ref={portalRef} className="max-w-5xl mx-auto opacity-0">
           <div className="text-center mb-14">
             <span className="stagger-child text-xs font-semibold tracking-widest text-[#3B8BD4] uppercase">Choose Your Portal</span>
-            <h2 className="stagger-child text-3xl font-bold text-[#E8EDF5] mt-2 tracking-tight">Select your role to sign in</h2>
+            <h2 className="stagger-child text-3xl font-bold text-[#E8EDF5] mt-2 tracking-tight">Connect your wallet to enter</h2>
             <p className="stagger-child text-[#8B95A8] mt-3 text-sm">Each stakeholder has a dedicated dashboard — same blockchain, different lens.</p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -267,13 +311,13 @@ export default function Home() {
             <span className="text-sm font-bold"><span className="text-[#3B8BD4]">Gov</span>Chain</span>
             <span className="text-xs text-[#4A5568]">— ZKP-Verified Tender Protocol</span>
           </div>
-          <div className="flex items-center gap-2 text-xs text-[#4A5568]"><div className="w-1.5 h-1.5 rounded-full bg-[#1D9E75]" />Polygon Mumbai • <span className="font-mono">0x7f3a...9f21</span></div>
+          <div className="flex items-center gap-2 text-xs text-[#4A5568]"><div className="w-1.5 h-1.5 rounded-full bg-[#1D9E75]" />Ethereum Sepolia • <span className="font-mono">0x7f3a...9f21</span></div>
           <p className="text-xs text-[#4A5568]">Hackathon — Track 3: Cybersecurity & Blockchain</p>
         </div>
       </footer>
 
-      {/* Login Modal — appears after selecting a portal */}
-      {selectedPortal && <LoginModal portal={selectedPortal} onClose={() => setSelectedPortal(null)} onSuccess={handleLoginSuccess} />}
+      {/* Connect Modal — appears after selecting a portal */}
+      {selectedPortal && <ConnectModal portal={selectedPortal} onClose={() => setSelectedPortal(null)} onSuccess={handleSuccess} />}
     </div>
   )
 }

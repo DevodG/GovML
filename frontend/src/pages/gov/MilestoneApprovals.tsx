@@ -3,6 +3,7 @@ import { Card } from '../../components/ui'
 import { MapPin, Image, CheckCircle, Clock, ExternalLink, AlertTriangle } from 'lucide-react'
 import api from '../../lib/api'
 import { useAuthStore } from '../../store/authStore'
+import { useSignMilestone } from '../../hooks/useContractWrite'
 
 function useCountdown(deadline: Date) {
   const [timeLeft, setTimeLeft] = useState('')
@@ -112,13 +113,16 @@ export default function MilestoneApprovals() {
   const { token } = useAuthStore()
   const [milestones, setMilestones] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const signMilestone = useSignMilestone()
 
   const handleApprove = async (id: string) => {
     if (!token) return
 
     try {
+      // Call on-chain signMilestone
+      signMilestone.write(BigInt(id))
+      // Also sync with backend
       await api.gov.approveMilestone(token, id)
-      // Refresh milestones
       const response = await api.gov.getPendingMilestones(token)
       setMilestones(response.milestones || [])
     } catch (error) {

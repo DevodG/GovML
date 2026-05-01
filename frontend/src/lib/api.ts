@@ -4,36 +4,22 @@ const WS_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:3000';
 
 // API client
 export const api = {
-  // Auth endpoints
+  // Auth endpoints (SIWE — Sign-In with Ethereum)
   auth: {
-    login: (email: string, password: string) =>
-      fetch(`${API_BASE_URL}/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
-      }).then(r => r.json()),
+    getNonce: () =>
+      fetch(`${API_BASE_URL}/auth/nonce`).then(r => r.json()),
 
-    register: (data: any) =>
-      fetch(`${API_BASE_URL}/auth/register`, {
+    verifySIWE: (message: string, signature: string) =>
+      fetch(`${API_BASE_URL}/auth/siwe`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
+        body: JSON.stringify({ message, signature })
       }).then(r => r.json()),
 
     getMe: (token: string) =>
       fetch(`${API_BASE_URL}/auth/me`, {
         headers: { Authorization: `Bearer ${token}` }
       }).then(r => r.json()),
-
-    connectWallet: (token: string, walletAddress: string) =>
-      fetch(`${API_BASE_URL}/auth/connect-wallet`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({ walletAddress })
-      }).then(r => r.json())
   },
 
   // Government endpoints

@@ -9,6 +9,7 @@ const http = require('http');
 
 // Import routes
 const authRoutes = require('./routes/auth');
+const siweRoutes = require('./routes/siwe');
 const tenderRoutes = require('./routes/tenders');
 const bidRoutes = require('./routes/bids');
 const milestoneRoutes = require('./routes/milestones');
@@ -63,6 +64,7 @@ app.get('/health', (req, res) => {
 
 // API routes
 app.use('/api/auth', authRoutes);
+app.use('/api/auth', siweRoutes);
 app.use('/api/tenders', tenderRoutes);
 app.use('/api/bids', bidRoutes);
 app.use('/api/milestones', milestoneRoutes);

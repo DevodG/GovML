@@ -115,11 +115,11 @@ export default function ManageBids() {
                 </div>
                 <div className="flex justify-between text-xs">
                   <span className="text-[#8B95A8]">Stake Locked</span>
-                  <span className="font-mono text-[#EF9F27]">{selectedBid.stake} MATIC</span>
+                  <span className="font-mono text-[#EF9F27]">{selectedBid.stake} ETH</span>
                 </div>
               </div>
               <a href="#" className="flex items-center gap-1.5 text-xs text-[#3B8BD4] hover:text-[#2A75BB] transition-colors">
-                <ExternalLink size={12} />View on Polygonscan
+                <ExternalLink size={12} />View on Etherscan
               </a>
             </Card>
           ) : (

@@ -1,13 +1,15 @@
+import { sepolia } from 'wagmi/chains'
 import { createConfig, http } from 'wagmi'
-import { polygonMumbai } from 'wagmi/chains'
 import { injected } from 'wagmi/connectors'
 
+const SEPOLIA_RPC = import.meta.env.VITE_SEPOLIA_RPC || 'https://rpc.sepolia.org'
+
 export const wagmiConfig = createConfig({
-  chains: [polygonMumbai],
+  chains: [sepolia],
   connectors: [
     injected(),
   ],
   transports: {
-    [polygonMumbai.id]: http('https://rpc-mumbai.maticvigil.com'),
+    [sepolia.id]: http(SEPOLIA_RPC),
   },
 })

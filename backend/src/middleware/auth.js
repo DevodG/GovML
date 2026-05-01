@@ -10,7 +10,17 @@ const auth = async (req, res, next) => {
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'govchain-secret-key');
-    const user = await User.findById(decoded.id).select('-password');
+
+    // Support both legacy (id) and SIWE (walletAddress) tokens
+    let user;
+    if (decoded.id) {
+      user = await User.findById(decoded.id).select('-password');
+    }
+    if (!user && decoded.walletAddress) {
+      user = await User.findOne({
+        walletAddress: { $regex: new RegExp(`^${decoded.walletAddress}$`, 'i') }
+      }).select('-password');
+    }
 
     if (!user) {
       return res.status(401).json({ error: 'User not found' });

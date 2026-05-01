@@ -1,5 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { useAuthStore } from './store/authStore'
+import { useAccount } from 'wagmi'
+import { useOnChainRole } from './hooks/useOnChainRole'
 
 // Home
 import Home from './pages/Home'
@@ -41,11 +43,14 @@ import OracleSigning from './pages/auditor/OracleSigning'
 
 function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode, allowedRoles?: string[] }) {
   const { isLoggedIn, user } = useAuthStore()
+  const { isConnected } = useAccount()
 
+  // Must be either wallet-connected + SIWE'd, or demo-logged-in
   if (!isLoggedIn) {
     return <Navigate to="/" replace />
   }
 
+  // Check role from auth store (set by SIWE response or on-chain resolution)
   if (allowedRoles && user && !allowedRoles.includes(user.role)) {
     return <Navigate to="/" replace />
   }
@@ -105,7 +110,7 @@ export default function App() {
           <Route path="reputation" element={<Reputation />} />
         </Route>
 
-        {/* Public */}
+        {/* Public — accessible without wallet for browsing */}
         <Route path="/public" element={<PublicLayout />}>
           <Route index element={<TenderFeed />} />
           <Route path="map" element={<FundMap />} />

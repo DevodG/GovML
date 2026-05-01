@@ -4,6 +4,8 @@ import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianG
 import { ShieldCheck, Star, Award } from 'lucide-react'
 import api from '../../lib/api'
 import { useAuthStore } from '../../store/authStore'
+import { useAccount } from 'wagmi'
+import { useContractorProfile } from '../../hooks/useContractData'
 
 const ratingHistory = [
   { month: 'Jul', rating: 3.8 }, { month: 'Aug', rating: 4.0 }, { month: 'Sep', rating: 3.9 },
@@ -18,6 +20,8 @@ const reviews = [
 
 export default function Reputation() {
   const { token, user } = useAuthStore()
+  const { address } = useAccount()
+  const { data: onChainProfile, isLoading: onChainLoading } = useContractorProfile(address)
   const [reputation, setReputation] = useState<any>(null)
   const [loading, setLoading] = useState(true)
 
@@ -38,10 +42,10 @@ export default function Reputation() {
     loadReputation()
   }, [token])
 
-  const stats = reputation ? [
-    { label: 'On-Chain Rating', value: `${(reputation.reputationScore / 20).toFixed(1)} / 5.0`, color: 'text-[#EF9F27]', icon: Star },
-    { label: 'Completed Projects', value: reputation.completedProjects || 0, color: 'text-[#1D9E75]', icon: Award },
-    { label: 'Completion Rate', value: `${reputation.completionRate || 0}%`, color: 'text-[#3B8BD4]', icon: ShieldCheck },
+  const stats = (reputation || onChainProfile) ? [
+    { label: 'On-Chain Rating', value: onChainProfile ? `${(Number(onChainProfile.rating) / 1000000).toFixed(1)} / 5.0` : `${(reputation?.reputationScore / 20).toFixed(1)} / 5.0`, color: 'text-[#EF9F27]', icon: Star },
+    { label: 'Completed Projects', value: onChainProfile ? Number(onChainProfile.tender_count).toString() : (reputation?.completedProjects || 0), color: 'text-[#1D9E75]', icon: Award },
+    { label: 'Completion Rate', value: onChainProfile ? `${(Number(onChainProfile.completion_rate) / 100).toFixed(0)}%` : `${reputation?.completionRate || 0}%`, color: 'text-[#3B8BD4]', icon: ShieldCheck },
   ] : []
 
   if (loading) {

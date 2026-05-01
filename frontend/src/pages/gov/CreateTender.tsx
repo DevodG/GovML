@@ -1,6 +1,8 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Card } from '../../components/ui'
 import { Upload, Plus, Trash2, Loader2, CheckCircle } from 'lucide-react'
+import { usePostTender } from '../../hooks/useContractWrite'
+import { isDemoMode } from '../../config/contracts'
 
 const steps = ['Basic Info', 'Budget & Timeline', 'Milestones', 'Publish']
 
@@ -17,9 +19,24 @@ export default function CreateTender() {
   const addMilestone = () => setMilestones([...milestones, { name: '', pct: 0, days: 0 }])
   const removeMilestone = (i: number) => setMilestones(milestones.filter((_, idx) => idx !== i))
 
+  const postTender = usePostTender()
+
+  // Watch for tx success
+  useEffect(() => {
+    if (postTender.isSuccess) {
+      setPublishing(false)
+      setDone(true)
+    }
+  }, [postTender.isSuccess])
+
   const handlePublish = () => {
     setPublishing(true)
-    setTimeout(() => { setPublishing(false); setDone(true) }, 3000)
+    // In demo mode, usePostTender falls back to setTimeout internally
+    // In live mode, this triggers a MetaMask tx for TenderRegistry.postTender()
+    const ipfsHash = '0x' + '0'.repeat(64) as `0x${string}` // placeholder — real flow: upload to IPFS first
+    const budget = BigInt(42000000) * BigInt(1e12) // convert to wei-scale
+    const deadline = BigInt(Math.floor(Date.now() / 1000) + 30 * 24 * 3600) // 30 days
+    postTender.write(ipfsHash, budget, deadline, milestones.length)
   }
 
   if (done) return (

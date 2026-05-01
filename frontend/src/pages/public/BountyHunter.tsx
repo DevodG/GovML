@@ -1,7 +1,9 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Card } from '../../components/ui'
-import { Shield, Loader2, CheckCircle, Eye, EyeOff, Lock, Unlock } from 'lucide-react'
-
+import { Shield, Loader2, CheckCircle, Eye, Lock, Unlock } from 'lucide-react'
+import { useRegisterBountyHunter, useCommitReview, useRevealReview, computeReviewCommitHash, generateSalt } from '../../hooks/useContractWrite'
+import { useIsHunterRegistered } from '../../hooks/useContractData'
+import { useAccount } from 'wagmi'
 type Phase = 'idle' | 'committed' | 'reveal_window' | 'revealed'
 
 const assignments = [
@@ -18,17 +20,38 @@ const phaseConfig: Record<Phase, { label: string; color: string; icon: any }> = 
 
 function AssignmentCard({ a }: { a: typeof assignments[0] }) {
   const [phase, setPhase] = useState<Phase>(a.phase)
-  const [loading, setLoading] = useState(false)
   const [rating, setRating] = useState(4)
   const cfg = phaseConfig[phase]
 
+  const commitReview = useCommitReview()
+  const revealReview = useRevealReview()
+
+  // Extract ID as number, default to 1
+  const assignmentId = BigInt(a.id.replace(/\D/g, '') || 1)
+
+  useEffect(() => {
+    if (commitReview.isSuccess) setPhase('reveal_window')
+  }, [commitReview.isSuccess])
+
+  useEffect(() => {
+    if (revealReview.isSuccess) setPhase('revealed')
+  }, [revealReview.isSuccess])
+
   const advance = () => {
-    setLoading(true)
-    setTimeout(() => {
-      setLoading(false)
-      setPhase(phase === 'idle' ? 'committed' : phase === 'committed' ? 'reveal_window' : phase === 'reveal_window' ? 'revealed' : 'revealed')
-    }, 2000)
+    if (phase === 'idle') {
+      const salt = generateSalt()
+      const hash = computeReviewCommitHash(rating, salt)
+      localStorage.setItem(`review-salt-${assignmentId.toString()}`, salt)
+      localStorage.setItem(`review-rating-${assignmentId.toString()}`, rating.toString())
+      commitReview.write(assignmentId, hash)
+    } else if (phase === 'reveal_window') {
+      const storedSalt = localStorage.getItem(`review-salt-${assignmentId.toString()}`) as `0x${string}`
+      const storedRating = parseInt(localStorage.getItem(`review-rating-${assignmentId.toString()}`) || rating.toString(), 10)
+      revealReview.write(assignmentId, storedRating, storedSalt || generateSalt())
+    }
   }
+
+  const isLoading = commitReview.isLoading || revealReview.isLoading
 
   return (
     <Card className="space-y-4">
@@ -81,12 +104,12 @@ function AssignmentCard({ a }: { a: typeof assignments[0] }) {
       )}
 
       {phase !== 'revealed' && (
-        <button onClick={advance} disabled={loading}
+        <button onClick={advance} disabled={isLoading || phase === 'committed'}
           className={`w-full font-semibold py-2 rounded-lg flex items-center justify-center gap-2 text-sm transition-all ${
             phase === 'idle' ? 'bg-[#EF9F27] hover:bg-[#d4891e] text-white' :
-            phase === 'committed' ? 'bg-[#151A22] border border-[#1E2530] text-[#8B95A8] hover:text-[#E8EDF5]' :
+            phase === 'committed' ? 'bg-[#151A22] border border-[#1E2530] text-[#8B95A8]' :
             'bg-[#3B8BD4] hover:bg-[#2A75BB] text-white'}`}>
-          {loading ? <><Loader2 size={16} className="animate-spin" />Submitting...</>
+          {isLoading ? <><Loader2 size={16} className="animate-spin" />Submitting...</>
             : phase === 'idle' ? <><Lock size={16} />Commit Hash</>
             : phase === 'committed' ? <span className="text-xs">⏳ Waiting for reveal window...</span>
             : <><Eye size={16} />Reveal Rating</>}
@@ -102,24 +125,27 @@ function AssignmentCard({ a }: { a: typeof assignments[0] }) {
 }
 
 export default function BountyHunter() {
-  const [registering, setRegistering] = useState(false)
-  const [registered, setRegistered] = useState(false)
+  const { address } = useAccount()
+  const { data: isRegistered } = useIsHunterRegistered(address)
+  const registerHunter = useRegisterBountyHunter()
 
-  return (
+  const handleRegister = () => {
+    registerHunter.write('0.01') // 0.01 ETH minimum stake
+  }
     <div className="space-y-6">
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-2xl font-bold text-[#E8EDF5] tracking-tight">Bounty Hunter Market</h1>
           <p className="text-sm text-[#8B95A8] mt-1">Stake MATIC, review milestone evidence, earn rewards for honest evaluations</p>
         </div>
-        {!registered && (
-          <button onClick={() => { setRegistering(true); setTimeout(() => { setRegistering(false); setRegistered(true) }, 2000) }}
-            disabled={registering}
+        {!isRegistered && (
+          <button onClick={handleRegister}
+            disabled={registerHunter.isLoading}
             className="bg-[#EF9F27] hover:bg-[#d4891e] text-white font-semibold px-4 py-2 rounded-lg flex items-center gap-2 text-sm transition-all">
-            {registering ? <><Loader2 size={16} className="animate-spin" />Staking...</> : <><Shield size={16} />Register + Stake 1 MATIC</>}
+            {registerHunter.isLoading ? <><Loader2 size={16} className="animate-spin" />Staking...</> : <><Shield size={16} />Register + Stake 0.01 ETH</>}
           </button>
         )}
-        {registered && (
+        {isRegistered && (
           <div className="flex items-center gap-2 px-4 py-2 bg-[#1D9E75]/10 border border-[#1D9E75]/20 rounded-xl text-sm text-[#1D9E75] font-semibold">
             <CheckCircle size={16} />Active Hunter
           </div>

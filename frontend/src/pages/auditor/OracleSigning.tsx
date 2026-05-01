@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
 import { Card } from '../../components/ui'
-import { MapPin, Image, CheckCircle, Loader2, ExternalLink } from 'lucide-react'
+import { MapPin, Image, CheckCircle, Loader2, ExternalLink, ShieldCheck, ShieldAlert } from 'lucide-react'
 import api from '../../lib/api'
 import { useAuthStore } from '../../store/authStore'
+import { useSignMilestone, useReviewAndRelease, useReviewAndSlash } from '../../hooks/useContractWrite'
 
 export default function OracleSigning() {
   const { token } = useAuthStore()
@@ -11,15 +12,40 @@ export default function OracleSigning() {
   const [signed, setSigned] = useState<Record<string, boolean>>({})
   const [loading, setLoading] = useState(true)
 
-  const handleSign = async (id: string) => {
+  const signMilestone = useSignMilestone()
+  const reviewAndRelease = useReviewAndRelease()
+  const reviewAndSlash = useReviewAndSlash()
+
+  const handleSign = async (id: string, isAnomaly: boolean) => {
     if (!token) return
 
     setSigning(prev => ({ ...prev, [id]: true }))
     try {
+      if (isAnomaly) {
+        // Here we default to release for demo purposes
+        // Real implementation would have separate buttons
+        reviewAndRelease.write(BigInt(id))
+      } else {
+        signMilestone.write(BigInt(id))
+      }
+      
       await api.auditor.signOracle(token, { milestoneId: id })
       setSigned(prev => ({ ...prev, [id]: true }))
     } catch (error) {
       console.error('Failed to sign:', error)
+    } finally {
+      setSigning(prev => ({ ...prev, [id]: false }))
+    }
+  }
+
+  const handleSlash = async (id: string) => {
+    if (!token) return
+    setSigning(prev => ({ ...prev, [id]: true }))
+    try {
+      reviewAndSlash.write(BigInt(id))
+      setSigned(prev => ({ ...prev, [id]: true }))
+    } catch (error) {
+      console.error('Failed to slash:', error)
     } finally {
       setSigning(prev => ({ ...prev, [id]: false }))
     }
@@ -114,10 +140,21 @@ export default function OracleSigning() {
               <div className="flex-1 flex items-center justify-center gap-2 py-2 text-sm text-[#1D9E75] font-semibold">
                 <CheckCircle size={16} />Signed as Independent Auditor
               </div>
+            ) : m.anomalyType ? (
+              <div className="flex-1 flex gap-2">
+                <button onClick={() => handleSign(m._id, true)} disabled={signing[m._id]}
+                  className="flex-1 bg-[#1D9E75] hover:bg-[#158260] disabled:opacity-50 text-white font-semibold py-2 rounded-lg flex items-center justify-center gap-2 text-sm transition-all">
+                  {signing[m._id] ? <Loader2 size={16} className="animate-spin" /> : <ShieldCheck size={16} />} Release
+                </button>
+                <button onClick={() => handleSlash(m._id)} disabled={signing[m._id]}
+                  className="flex-1 bg-[#D85A30] hover:bg-[#b04724] disabled:opacity-50 text-white font-semibold py-2 rounded-lg flex items-center justify-center gap-2 text-sm transition-all">
+                  {signing[m._id] ? <Loader2 size={16} className="animate-spin" /> : <ShieldAlert size={16} />} Slash
+                </button>
+              </div>
             ) : (
-              <button onClick={() => handleSign(m._id)} disabled={signing[m._id]}
+              <button onClick={() => handleSign(m._id, false)} disabled={signing[m._id]}
                 className="flex-1 bg-[#7F77DD] hover:bg-[#6b63cc] disabled:opacity-50 text-white font-semibold py-2 rounded-lg flex items-center justify-center gap-2 text-sm transition-all">
-                {signing[m._id] ? <><Loader2 size={16} className="animate-spin" />Signing...</> : <><CheckCircle size={16} />Sign as Oracle</>}
+                {signing[m._id] ? <><Loader2 size={16} className="animate-spin" />Signing...</> : <><CheckCircle size={16} />Sign Milestone</>}
               </button>
             )}
             <a href="#" className="flex items-center gap-1.5 px-3 py-2 border border-[#1E2530] rounded-lg text-xs text-[#8B95A8] hover:text-[#E8EDF5] transition-colors">

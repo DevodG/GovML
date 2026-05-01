@@ -9,6 +9,7 @@ import {
 } from 'lucide-react'
 
 const roleConfig: Record<string, { label: string; color: string; icon: any }> = {
+  government: { label: 'Government Portal', color: '#3B8BD4', icon: Building2 },
   gov: { label: 'Government Portal', color: '#3B8BD4', icon: Building2 },
   contractor: { label: 'Contractor Portal', color: '#1D9E75', icon: HardHat },
   public: { label: 'Public Portal', color: '#EF9F27', icon: Users },
@@ -16,18 +17,22 @@ const roleConfig: Record<string, { label: string; color: string; icon: any }> = 
 }
 
 export function Sidebar() {
-  const { role, username, logout } = useAuthStore()
+  const { user, logout } = useAuthStore()
   const navigate = useNavigate()
   const location = useLocation()
   const { address, isConnected } = useAccount()
   const { connect } = useConnect()
   const { disconnect } = useDisconnect()
 
-  const handleLogout = () => { logout(); navigate('/') }
-  const rc = roleConfig[role]
+  const role = user?.role || 'public'
+  const handleLogout = () => { disconnect(); logout(); navigate('/') }
+  const rc = roleConfig[role] || roleConfig['public']
+
+  // Display name: wallet address > user name > 'Wallet'
+  const displayName = address ? truncateAddress(address) : user?.name || 'Wallet'
 
   const navItems: Record<string, { path: string; label: string; icon: any }[]> = {
-    gov: [
+    government: [
       { path: '/gov', label: 'Dashboard', icon: LayoutDashboard },
       { path: '/gov/tenders/create', label: 'Create Tender', icon: FileText },
       { path: '/gov/tenders/1/bids', label: 'Manage Bids', icon: Users },
@@ -73,18 +78,16 @@ export function Sidebar() {
 
       {/* User + Role badge */}
       <div className="px-4 pt-4 space-y-2">
-        {/* User info */}
-        {username && (
-          <div className="flex items-center gap-2 bg-[#151A22] border border-[#1E2530] rounded-lg px-3 py-2">
-            <div className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: `${rc.color}20` }}>
-              <User size={14} style={{ color: rc.color }} />
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="text-xs font-semibold text-[#E8EDF5] truncate">{username}</div>
-              <div className="text-xs text-[#4A5568]">{rc.label}</div>
-            </div>
+        {/* User info — shows wallet address */}
+        <div className="flex items-center gap-2 bg-[#151A22] border border-[#1E2530] rounded-lg px-3 py-2">
+          <div className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: `${rc.color}20` }}>
+            <User size={14} style={{ color: rc.color }} />
           </div>
-        )}
+          <div className="flex-1 min-w-0">
+            <div className="text-xs font-semibold text-[#E8EDF5] truncate font-mono">{displayName}</div>
+            <div className="text-xs text-[#4A5568]">{rc.label}</div>
+          </div>
+        </div>
         {/* Role indicator */}
         <div className="flex items-center gap-2 px-3 py-2 rounded-lg border" style={{ borderColor: `${rc.color}30`, background: `${rc.color}08` }}>
           <rc.icon size={16} style={{ color: rc.color }} />
@@ -120,7 +123,7 @@ export function Sidebar() {
               </div>
               <button onClick={() => disconnect()} className="text-[#4A5568] hover:text-[#8B95A8]"><LogOut size={14} /></button>
             </div>
-            <div className="text-xs text-[#4A5568] mt-1">Mumbai Testnet</div>
+            <div className="text-xs text-[#4A5568] mt-1">Sepolia Testnet</div>
           </div>
         ) : (
           <button onClick={() => connect({ connector: injected() })}

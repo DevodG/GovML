@@ -6,7 +6,6 @@ import { Toaster } from 'sonner'
 import App from './App'
 import { wagmiConfig } from './config/wagmi'
 import { connectWebSocket } from './lib/api'
-import { useAuthStore } from './store/authStore'
 import './index.css'
 import '@fontsource/inter'
 import '@fontsource/jetbrains-mono'
@@ -14,15 +13,8 @@ import '@fontsource/jetbrains-mono'
 const queryClient = new QueryClient()
 
 function Root() {
-  const { token, refreshUser } = useAuthStore()
-
   useEffect(() => {
-    // Refresh user data on mount if token exists
-    if (token) {
-      refreshUser()
-    }
-
-    // Initialize WebSocket connection
+    // Initialize WebSocket connection for real-time updates
     const ws = connectWebSocket()
 
     return () => {
@@ -30,7 +22,7 @@ function Root() {
         ws.close()
       }
     }
-  }, [token, refreshUser])
+  }, [])
 
   return <App />
 }
