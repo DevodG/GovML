@@ -5,134 +5,117 @@
 [![Node.js 20+](https://img.shields.io/badge/Node.js-20+-green.svg)](https://nodejs.org/)
 [![Solidity 0.8.20](https://img.shields.io/badge/Solidity-0.8.20-purple.svg)](https://soliditylang.org/)
 
-**A hackathon-ready, production-grade blockchain-powered government procurement platform.**
+> A hackathon-ready, production-grade blockchain-powered government procurement platform addressing India's ₹8.4 Lakh Crore corruption problem.
 
-🎯 **Hackathon-Ready** • 🚀 **Production-Grade** • 🔒 **Mathematically Secure**
+**🎯 Hackathon-Ready** • **🚀 Production-Grade** • **🔒 Mathematically Secure**
 
 ---
 
-## 📋 Table of Contents
+## 📋 Quick Navigation
 
-- [Overview](#overview)
-- [Key Features](#key-features)
-- [Technology Stack](#technology-stack)
-- [Architecture](#architecture)
-- [Repository Structure](#repository-structure)
-- [Quick Start](#quick-start)
-- [Components](#components)
-- [Smart Contracts](#smart-contracts)
-- [ML Service](#ml-service)
-- [Backend API](#backend-api)
-- [Development](#development)
-- [Testing](#testing)
-- [Deployment](#deployment)
-- [Monitoring](#monitoring)
-- [Contributing](#contributing)
-- [License](#license)
+| Section | Link |
+|---------|------|
+| Overview | [🎯 Problem & Solution](#-overview) |
+| Key Features | [🏆 What Makes Us Different](#-key-features) |
+| Tech Stack | [📊 Technologies Used](#-technology-stack) |
+| Architecture | [🏗️ System Design](#-architecture) |
+| Getting Started | [🚀 Quick Start](#-quick-start) |
+| Components | [📦 What's Included](#-components) |
+| Deployment | [🚀 Deploy](#-deployment) |
 
 ---
 
 ## 🎯 Overview
 
-GovML addresses India's ₹8.4 Lakh Crore corruption problem in government procurement through:
-
-- **Pre-Award Phase**: ML-scored, ZKP-verified tender allotment
-- **Post-Award Phase**: Cryptographically enforced milestone escrow with dead man's switch
-- **Citizen Oversight**: Financially incentivized bounty hunter system
-- **AI Auditing**: Human-readable audit reports powered by NVIDIA NIM
-
 ### The Problem
-- **Scale**: ₹8.4 Lakh Crore annual government procurement market
-- **Corruption**: #1 source of corruption in India
-- **Opacity**: Opaque tender allotment and fund release processes
-- **No Accountability**: Contractors can abandon projects without consequences
+- **₹8.4 Lakh Crore** annual government procurement market
+- **#1 corruption vector** in India
+- Opaque tender allotment and fund release processes
+- No accountability when contractors abandon projects
 
 ### Our Solution
-Mathematical security through cryptographic impossibility, not legal frameworks.
+**Mathematical security through cryptographic impossibility** — not legal frameworks.
+
+We combine:
+- 🔐 **Zero-Knowledge Proofs** for verified credentials
+- 🤖 **AI-Powered Scoring** for fraud detection
+- ⛓️ **Smart Escrow Contracts** for fund security
+- 🏅 **Bounty Hunters** for crowd-sourced oversight
 
 ---
 
-## � Key Features
+## 🏆 Key Features
 
-### 🔐 Zero-Knowledge Proof Verification
-- **KYC Verification**: Prove Aadhaar + GST without revealing them
-- **Score Integrity**: Verify ML scores were computed correctly
-- **Invoice Nullifier**: Prevent double-submission of invoices
-
-### 🤖 AI-Powered Audit Narration
-- **NVIDIA NIM Integration**: Free cloud LLM (Llama 3.1 8B)
-- **Human-Readable Reports**: Convert blockchain events to plain English
-- **Template Fallback**: Reliable operation even when AI unavailable
-
-### 🎯 ML-Driven Bid Scoring
-- **Ensemble Models**: Multiple ML algorithms for robust scoring
-- **Fraud Detection**: Isolation Forest anomaly detection
-- **Explainable AI**: Human-readable feature importance
-
-### 💰 Cryptographic Fund Security
-- **Multi-Sig Approval**: 3-of-5 required for fund release
-- **Dead Man's Switch**: Auto-redistribute if contractor ghosts
-- **Escrow System**: Funds locked until milestone completion
-
-### 🏅 Citizen Bounty System
-- **Random Assignment**: VRF-based hunter selection
-- **Commit-Reveal**: Prevent collusion between hunters
-- **Financial Incentives**: Earn rewards for catching fraud
+| Feature | Description |
+|---------|-------------|
+| **🔐 ZKP Verification** | Prove credentials (Aadhaar, GST) without revealing them |
+| **🤖 AI Audit Reports** | NVIDIA NIM generates human-readable audit narrations |
+| **🎯 ML Bid Scoring** | Ensemble models for fair, fraud-resistant scoring |
+| **💰 Fund Security** | Multi-sig escrow + dead man's switch |
+| **🏅 Bounty System** | VRF-based random assignment + financial incentives |
 
 ---
 
 ## 📊 Technology Stack
 
-### 🔗 Blockchain Layer
-- **Platform**: Ethereum Sepolia (Testnet)
-- **Language**: Solidity 0.8.20
-- **Framework**: Foundry
-- **Security**: OpenZeppelin contracts (AccessControl, ReentrancyGuard, Pausable)
+### Frontend
+- React 18+ | TypeScript | Tailwind CSS | Web3 Integration
 
-### 🔐 ZKP Layer
-- **Circuits**: Circom 2.1.0
-- **Proof System**: Groth16 (KYC, Nullifier), PLONK (Scoring)
-- **Prover**: snarkjs
-- **Hash Function**: Poseidon (SNARK-friendly)
+### Backend
+- Node.js 20+ | Express.js | MongoDB Atlas | JWT Auth | WebSocket
 
-### 🤖 ML/AI Layer
-- **Framework**: Python 3.11+, FastAPI
-- **LLM**: NVIDIA NIM (Llama 3.1 8B - Free)
-- **ML Models**: scikit-learn (Ensemble, Isolation Forest)
-- **Monitoring**: Prometheus metrics
+### Smart Contracts
+- Solidity 0.8.20 | Foundry | OpenZeppelin | 9 Production Contracts
 
-### 🌐 Backend Layer
-- **Runtime**: Node.js 20+
-- **Framework**: Express.js
-- **Database**: MongoDB Atlas (M0 Free Tier)
-- **Authentication**: JWT + Role-based Access
-- **Blockchain**: ethers.js v6
+### ML Service
+- Python 3.11+ | FastAPI | scikit-learn | NVIDIA NIM (Llama 3.1 8B)
 
-### 💾 Storage Layer
-- **Documents**: IPFS (Pinata - 1GB Free)
-- **Database**: MongoDB Atlas (512MB Free)
-- **Blockchain**: Ethereum Sepolia (Free Testnet)
+### Zero-Knowledge Proofs
+- Circom 2.1.0 | snarkjs | Groth16 & PLONK | Poseidon Hashing
+
+### Infrastructure
+- Ethereum Sepolia (Testnet) | IPFS (Pinata) | MongoDB Atlas | Prometheus
 
 ---
 
 ## 🏗️ Architecture
-│           Frontend (React)                   │
-└────────────────────┬────────────────────────┘
-                     │
-┌────────────────────▼────────────────────────┐
-│      Backend (Node.js/Express)              │
-│  • Authentication & Authorization           │
-│  • Tender Management                        │
-│  • Bid Processing                           │
-│  • Audit Logging                            │
-└────────┬──────────────────┬─────────────────┘
-         │                  │
-    ┌────▼────┐      ┌──────▼──────┐
-    │ ML Service   │  Smart Contracts
-    │ • Scoring   │  • TenderRegistry
-    │ • Anomaly   │  • BidEscrow
-    │   Detection │  • Milestones
-    └─────────┘  └──────────────┘
+
+```
+┌─────────────────────────────────────────────────────┐
+│                    FRONTEND (React)                  │
+│         Portals for Gov / Contractors / Public       │
+└────────────────────────┬────────────────────────────┘
+                         │
+┌────────────────────────▼────────────────────────────┐
+│              BACKEND (Node.js/Express)              │
+│    Auth • Tenders • Bids • Milestones • Audits      │
+└──────────┬─────────────────────────┬────────────────┘
+           │                         │
+       ┌───▼────┐             ┌─────▼──────┐
+       │ ML      │             │ Smart      │
+       │ Service │             │ Contracts  │
+       │         │             │            │
+       │ • Score │             │ • Registry │
+       │ • Fraud │             │ • Escrow   │
+       │ • Audit │             │ • Oracle   │
+       └─────────┘             └────────────┘
+           │                         │
+       ┌───┴─────────────┬───────────┘
+       │                 │
+       │ ┌──────────────▼───────────┐
+       │ │   ZKP Circuits (Circom)   │
+       │ ├─────────────────────────┤
+       │ │ • KYC Verification      │
+       │ │ • Score Integrity       │
+       │ │ • Invoice Nullifier     │
+       │ └─────────────────────────┘
+       │
+       └────────────────┬────────────────┐
+                        │                │
+       ┌────────────────▼──────┐   ┌────▼──────────┐
+       │  Ethereum Sepolia     │   │  IPFS/Pinata  │
+       │  (Blockchain)         │   │  (Storage)     │
+       └───────────────────────┘   └────────────────┘
 ```
 
 ---
@@ -141,65 +124,58 @@ Mathematical security through cryptographic impossibility, not legal frameworks.
 
 ```
 govchain/
-├── README.md                 # Main documentation
-├── package.json             # Root dependencies
-├── QUICKSTART.md            # Setup guide
-├── PROJECT_STATUS.md        # Current status
-├── COMPLETION_SUMMARY.md    # Milestones
+├── 📄 README.md                    # This file
+├── 📄 LICENSE                      # MIT License
+├── 📄 QUICKSTART.md               # Setup guide
+├── 📄 PROJECT_STATUS.md           # Current status
 │
-├── backend/                 # Node.js REST API
+├── 🌐 backend/
 │   ├── src/
-│   │   ├── index.js
-│   │   ├── controllers/     # Business logic
-│   │   ├── routes/          # API endpoints
-│   │   ├── middleware/      # Auth, blockchain, error handling
-│   │   ├── models/          # Database schemas
-│   │   ├── services/        # Service layer
-│   │   └── utils/           # Utilities
+│   │   ├── routes/                # API endpoints
+│   │   ├── models/                # MongoDB schemas
+│   │   ├── middleware/            # Auth & blockchain
+│   │   ├── services/              # Business logic
+│   │   └── utils/                 # Helpers
 │   └── package.json
 │
-├── frontend/                # React UI
-│   ├── public/
+├── 🎨 frontend/
 │   ├── src/
 │   │   ├── components/
 │   │   ├── pages/
 │   │   ├── hooks/
-│   │   ├── services/
-│   │   └── utils/
+│   │   └── services/
 │   └── package.json
 │
-├── contracts/               # Foundry Solidity Contracts
-│   ├── src/                 # Smart contracts
-│   │   ├── TenderRegistry.sol
+├── ⛓️  contracts/
+│   ├── src/
+│   │   ├── TenderRegistry.sol      # Main contract
 │   │   ├── BidEscrow.sol
 │   │   ├── MilestoneEscrow.sol
-│   │   ├── AnomalyOracle.sol
 │   │   ├── ScoringOracle.sol
+│   │   ├── AnomalyOracle.sol
 │   │   ├── BountyHunter.sol
 │   │   └── RatingLedger.sol
-│   ├── script/              # Deployment scripts
-│   ├── test/                # Contract tests
-│   ├── foundry.toml
-│   └── README.md            # Foundry setup
+│   ├── test/                       # 88 tests
+│   ├── script/
+│   └── foundry.toml
 │
-├── ml-service/              # Python ML Service
+├── 🤖 ml-service/
 │   ├── src/
-│   │   ├── main.py
-│   │   ├── api/             # FastAPI routes
-│   │   ├── models/          # ML models
-│   │   ├── services/        # ML services
-│   │   ├── config/          # Configuration
-│   │   └── utils/
-│   ├── tests/
+│   │   ├── api/                    # FastAPI routes
+│   │   ├── models/                 # ML models
+│   │   ├── services/               # ML services
+│   │   └── config/
 │   ├── requirements.txt
-│   ├── start.sh
-│   └── README.md            # ML setup guide
+│   └── start.sh
 │
-├── scripts/                 # Utility scripts
-│   ├── deploy-all.sh
-│   └── create-demo-data.js
+├── 🔐 circuits/
+│   ├── kyc/
+│   ├── scoring/
+│   └── nullifier/
 │
-└── docs/                    # Documentation
+└── 📚 scripts/
+    ├── deploy-all.sh
+    └── create-demo-data.js
 ```
 
 ---
@@ -207,26 +183,25 @@ govchain/
 ## 🚀 Quick Start
 
 ### Prerequisites
-- Node.js 16+
-- Python 3.9+
-- Foundry (for smart contracts)
-- Git
+```bash
+Node.js 20+    # npm --version
+Python 3.11+   # python --version
+Foundry        # forge --version
+Git            # git --version
+```
 
-### Installation
+### 5-Minute Setup
 
-1. **Clone the repository**
+1. **Clone & Install**
    ```bash
    git clone https://github.com/DevodG/GovML.git
    cd govchain
    ```
 
-2. **Install dependencies**
+2. **Install All Dependencies**
    ```bash
    # Backend
    cd backend && npm install && cd ..
-   
-   # Frontend
-   cd frontend && npm install && cd ..
    
    # ML Service
    cd ml-service && pip install -r requirements.txt && cd ..
@@ -235,150 +210,51 @@ govchain/
    cd contracts && forge install && cd ..
    ```
 
-3. **Configure environment**
-   - Copy `.env.example` files to `.env` in each component
-   - Update with your configuration (API keys, RPC URLs, etc.)
-
-4. **Start services**
+3. **Configure Environment**
    ```bash
-   # Terminal 1: Backend
-   cd backend && npm start
+   # Create .env files in backend/, ml-service/, and contracts/
+   cp .env.example .env
+   # Edit with your API keys and RPC URLs
+   ```
+
+4. **Start Services** (in separate terminals)
+   ```bash
+   # Terminal 1: Backend API
+   cd backend && npm start       # http://localhost:4000
    
-   # Terminal 2: Frontend
-   cd frontend && npm start
+   # Terminal 2: ML Service
+   cd ml-service && ./start.sh   # http://localhost:8000
    
-   # Terminal 3: ML Service
-   cd ml-service && bash start.sh
+   # Terminal 3: Frontend
+   cd frontend && npm start      # http://localhost:3000
    ```
 
 ---
 
 ## 📦 Components
 
-### Backend
-- RESTful API for tender and bid management
-- User authentication and authorization
-- Blockchain integration for smart contracts
-- Audit logging system
+### Backend API
+- **20+ endpoints** for tenders, bids, milestones, audits
+- JWT authentication + role-based access control
+- Real-time updates via WebSocket
+- MongoDB integration for persistent storage
 
-**[See Backend README →](./backend/README.md)**
-
-### Frontend
-- React-based user interface
-- Real-time updates
-- Responsive design
-- Wallet integration
-
-**[See Frontend README →](./frontend/README.md)**
+### ML Service  
+- **Bid Scoring**: Ensemble of 4+ ML models
+- **Fraud Detection**: Isolation Forest for anomalies
+- **AI Auditing**: NVIDIA NIM integration (free)
+- **ZKP Proof Generation**: snarkjs support
 
 ### Smart Contracts
-- TenderRegistry: Core tender management on-chain
-- BidEscrow: Secure escrow for bid deposits
-- MilestoneEscrow: Payment escrow for milestones
-- Oracles: Anomaly detection and scoring
+- **9 Production Contracts** with 88 tests
+- **Upgradeable** with storage gaps
+- **OpenZeppelin**: AccessControl, ReentrancyGuard
+- **Key Contracts**: TenderRegistry, BidEscrow, MilestoneEscrow, Oracles
 
-**[See Contracts README →](./contracts/README.md)**
-
-### ML Service
-- Bid scoring engine
-- Anomaly detection
-- Data analysis and reporting
-- RESTful API endpoints
-
-**[See ML Service README →](./ml-service/README.md)**
-
----
-
-## 🛠️ Development
-
-### Running Tests
-
-```bash
-# Backend tests
-cd backend && npm test
-
-# Contract tests
-cd contracts && forge test
-
-# ML Service tests
-cd ml-service && pytest tests/
-```
-
-### Building for Production
-
-```bash
-# Build all components
-bash scripts/deploy-all.sh
-```
-
-### Code Formatting
-
-```bash
-# Contracts
-cd contracts && forge fmt
-
-# Backend & Frontend
-cd backend && npm run format
-cd frontend && npm run format
-```
-
----
-
-## � Smart Contracts
-
-**9 Production-Ready Contracts** with ~3,500 lines of Solidity
-
-- **TenderRegistry**: Tender lifecycle management
-- **BidEscrow**: Bid staking and fund management
-- **MilestoneEscrow**: Multi-sig milestone tracking
-- **ScoringOracle**: ML score verification with ZKP
-- **AnomalyOracle**: AI fraud detection with 72-hour freeze
-- **BountyHunter**: VRF-based bounty hunter assignment
-- **RatingLedger**: Immutable reputation system
-- **ZKPController**: Zero-knowledge proof verification
-- **Groth16Verifier**: Proof verification contract
-
-📊 **Test Coverage**: 88 tests passing | Upgradeable patterns with storage gaps
-
----
-
-## 🤖 ML Service
-
-**FastAPI-based Intelligent Scoring & Fraud Detection**
-
-### Capabilities
-- **Ensemble Bid Scoring**: Random Forest, XGBoost, Neural Networks
-- **Anomaly Detection**: Isolation Forest for real-time fraud detection
-- **AI Audit Reports**: NVIDIA NIM (Llama 3.1 8B) for human-readable narration
-- **ZKP Proof Generation**: snarkjs integration for circuit proofs
-
-### API Routes
-- `/api/v1/scoring` - Bid scoring
-- `/api/v1/fraud` - Anomaly detection
-- `/api/v1/audit` - AI audit generation
-- `/api/v1/zkp` - Proof generation
-- `/api/v1/health` - Health checks
-
----
-
-## 🌐 Backend API
-
-**Express.js RESTful API** with MongoDB Atlas integration
-
-### Core Features
-- **Authentication**: JWT-based access control
-- **Real-time Updates**: WebSocket integration
-- **Blockchain Integration**: ethers.js for contract interactions
-- **Audit Logging**: Complete transaction trail
-- **Multi-role Support**: Government, Contractors, Auditors, Bounty Hunters
-
-### API Endpoints
-- **Tenders**: CRUD + status tracking
-- **Bids**: Submission, scoring, refunds
-- **Milestones**: Tracking, verification, fund release
-- **Bounty**: Hunter assignment, ratings
-- **Auditor**: Review + anomaly management
-- **Public**: Data access for citizens
+### Zero-Knowledge Proofs
+- **KYC Circuit**: Verify Aadhaar + GST privately
+- **Score Circuit**: Verify ML computation
+- **Nullifier Circuit**: Prevent invoice double-submission
 
 ---
 
@@ -399,7 +275,7 @@ cd backend && npm test
 
 ## 🚀 Deployment
 
-### Smart Contracts
+### Smart Contracts → Ethereum Sepolia
 ```bash
 cd contracts
 forge script script/Deploy.s.sol \
@@ -409,29 +285,54 @@ forge script script/Deploy.s.sol \
 ```
 
 ### Backend & ML Service
-- **Option 1**: Docker containers
-- **Option 2**: Railway/Vercel deployment
-- **Option 3**: Traditional VPS hosting
+- **Docker**: `docker build -t govchain-backend . && docker run -p 4000:4000 govchain-backend`
+- **Railway**: Connect GitHub repo → auto-deploy
+- **Vercel**: Frontend only, API connects to backend
 
 ---
 
 ## 📈 Monitoring
 
-- **Prometheus Metrics**: ml_service_requests, bids_scored, fraud_detected
+- **Prometheus Metrics**: Requests, scoring, fraud detection
 - **Structured Logging**: JSON format with timestamps
-- **Health Checks**: `/api/health`, `/api/health/ready`, `/api/health/live`
-- **Real-time Alerts**: Anomaly detection triggers
+- **Health Checks**: `/api/health`, `/api/health/ready`
+- **Real-time Alerts**: Anomaly triggers
 
 ---
 
-## �📝 License
+## 📝 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+MIT License — See [LICENSE](LICENSE) for details.
 
 ---
 
 ## 👥 Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+1. Fork the repo
+2. Create feature branch: `git checkout -b feature/amazing`
+3. Commit: `git commit -m "Add amazing feature"`
+4. Push: `git push origin feature/amazing`
+5. Open Pull Request
 
-For more details, see [PROJECT_STATUS.md](PROJECT_STATUS.md) and [QUICKSTART.md](QUICKSTART.md).
+---
+
+## 📚 Documentation
+
+| Document | Purpose |
+|----------|---------|
+| [QUICKSTART.md](QUICKSTART.md) | Setup & getting started |
+| [PROJECT_STATUS.md](PROJECT_STATUS.md) | Current progress & roadmap |
+| [contracts/README.md](contracts/README.md) | Smart contract details |
+| [ml-service/README.md](ml-service/README.md) | ML service guide |
+
+---
+
+## 🎉 Made for Hackathons
+
+> **~13,000 lines** of production-ready code with comprehensive ZKP integration, AI-powered auditing, and mathematical security guarantees.
+
+**Let's build it. Ship it. Win it. 🚀🏆**
+
+---
+
+⭐ **Star us on GitHub** • 🐛 **Report Issues** • 📖 **Read the Docs**
