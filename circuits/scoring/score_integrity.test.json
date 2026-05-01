@@ -1,0 +1,12 @@
+{
+  "tender_id": "1",
+  "bid_id": "1",
+  "declared_score": "1350000",
+  "bid_amount": "500000",
+  "rating": "750000",
+  "completion_rate": "8500",
+  "weight_bid": "1",
+  "weight_rating": "1",
+  "weight_completion": "1",
+  "zkp_boost": "91500"
+}

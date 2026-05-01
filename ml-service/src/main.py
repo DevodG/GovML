@@ -118,6 +118,7 @@ async def log_requests(request: Request, call_next):
 app.include_router(scoring.router, prefix=settings.API_PREFIX, tags=["Scoring"])
 app.include_router(fraud.router, prefix=settings.API_PREFIX, tags=["Fraud Detection"])
 app.include_router(audit.router, prefix=settings.API_PREFIX, tags=["AI Audit"])
+app.include_router(zkp.router, prefix=settings.API_PREFIX, tags=["ZKP Proofs"])
 app.include_router(health.router, prefix=settings.API_PREFIX, tags=["Health"])
 
 
