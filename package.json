@@ -1,0 +1,22 @@
+{
+  "name": "govchain",
+  "version": "1.0.0",
+  "description": "Blockchain-Powered Government Procurement & Fund Tracking",
+  "main": "index.js",
+  "scripts": {
+    "install:all": "npm install && npm run install:contracts && npm run install:backend && npm run install:frontend && npm run install:ml",
+    "install:contracts": "cd contracts && npm install",
+    "install:backend": "cd backend && npm install",
+    "install:frontend": "cd frontend && npm install",
+    "install:ml": "cd ml-service && pip install -r requirements.txt",
+    "start:backend": "cd backend && npm start",
+    "start:frontend": "cd frontend && npm run dev",
+    "start:ml": "cd ml-service && uvicorn src.main:app --reload",
+    "deploy:contracts": "cd contracts && npx hardhat run scripts/deploy.js --network mumbai",
+    "test:contracts": "cd contracts && npx hardhat test",
+    "test:backend": "cd backend && npm test"
+  },
+  "keywords": ["blockchain", "government", "procurement", "polygon", "hackathon"],
+  "author": "GovChain Team",
+  "license": "MIT"
+}
