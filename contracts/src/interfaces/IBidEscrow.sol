@@ -25,6 +25,15 @@ interface IBidEscrow {
         uint256 timestamp
     );
 
+    /// @notice Emitted when a contractor commits a bid hash (phase 1 of commit-reveal)
+    // @integration BACKEND_EVENT_LISTENER — subscribe to track commits
+    event BidCommitted(
+        uint256 indexed tender_id,
+        address indexed contractor,
+        bytes32 commit_hash,
+        uint256 commit_block
+    );
+
     /// @notice Emitted when a contractor withdraws their bid before the deadline
     // @integration BACKEND_EVENT_LISTENER — subscribe to this event
     event BidWithdrawn(uint256 indexed bid_id, address indexed contractor, uint256 refund_amount);
@@ -41,13 +50,21 @@ interface IBidEscrow {
     // EXTERNAL FUNCTIONS
     // =========================================================================
 
-    /// @notice Submit a bid on a tender with ETH stake
-    /// @dev Contractor must send ETH as stake via msg.value. Tender must be OPEN.
+    /// @notice Phase 1: Commit a hash of (amount + salt) with ETH stake
+    /// @dev Contractor must send ETH as stake via msg.value.
+    /// @param tender_id ID of the tender to bid on
+    /// @param commit_hash Hash of (amount, salt)
+    // @integration FRONTEND — called via ethers.js (payable)
+    function commitBid(uint256 tender_id, bytes32 commit_hash) external payable;
+
+    /// @notice Phase 2: Reveal bid amount and salt (must match committed hash)
+    /// @dev Contractor must call within the reveal window.
     /// @param tender_id ID of the tender to bid on
     /// @param amount Proposed project cost in wei
+    /// @param salt The salt used in the commit hash
     /// @return bid_id The ID of the newly created bid
-    // @integration FRONTEND — called via ethers.js (payable)
-    function submitBid(uint256 tender_id, uint256 amount) external payable returns (uint256 bid_id);
+    // @integration FRONTEND — called via ethers.js
+    function submitBid(uint256 tender_id, uint256 amount, bytes32 salt) external returns (uint256 bid_id);
 
     /// @notice Withdraw a bid before the bidding deadline
     /// @dev Refunds the staked ETH immediately. Bid must be PENDING and tender OPEN.

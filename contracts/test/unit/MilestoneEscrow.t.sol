@@ -16,7 +16,9 @@ import {
     CONTRACTOR_ROLE,
     AUDITOR_ROLE,
     MULTISIG_THRESHOLD,
-    DEFAULT_PROOF_WINDOW
+    DEFAULT_PROOF_WINDOW,
+    COMMIT_WINDOW_BLOCKS,
+    DEAD_MAN_GRACE_PERIOD
 } from "../../src/Types.sol";
 import {
     TenderNotFound,
@@ -81,6 +83,8 @@ contract MilestoneEscrowTest is Test {
         vm.startPrank(admin);
         registry.grantRole(ORACLE_ROLE, oracle);
         registry.setBidEscrowAddress(address(escrow));
+        // TenderRegistry calls bidEscrow.lockWinnerStake() in allotWinner, needs admin role
+        escrow.grantRole(escrow.DEFAULT_ADMIN_ROLE(), address(registry));
         vm.stopPrank();
 
         // Fund accounts
@@ -93,8 +97,7 @@ contract MilestoneEscrowTest is Test {
         vm.prank(govt);
         tenderId = registry.postTender(IPFS_HASH, BUDGET, deadline, MILESTONE_COUNT);
 
-        vm.prank(contractor1);
-        escrow.submitBid{value: 0.5 ether}(tenderId, 80 ether);
+        _commitAndRevealBid(contractor1, tenderId, 80 ether, 0.5 ether);
 
         vm.warp(deadline + 1);
         vm.prank(govt);
@@ -102,6 +105,16 @@ contract MilestoneEscrowTest is Test {
 
         vm.prank(oracle);
         registry.allotWinner(tenderId, contractor1, hex"deadbeef", new uint256[](0));
+    }
+
+    function _commitAndRevealBid(address bidder, uint256 _tenderId, uint256 amount, uint256 stakeAmt) internal {
+        bytes32 salt = keccak256(abi.encodePacked(bidder, amount));
+        bytes32 commitHash = keccak256(abi.encodePacked(amount, salt));
+        vm.prank(bidder);
+        escrow.commitBid{value: stakeAmt}(_tenderId, commitHash);
+        vm.roll(block.number + COMMIT_WINDOW_BLOCKS + 1);
+        vm.prank(bidder);
+        escrow.submitBid(_tenderId, amount, salt);
     }
 
     // =========================================================================
@@ -276,7 +289,7 @@ contract MilestoneEscrowTest is Test {
     function test_submitMilestoneProof_reverts_emptyIpfs() public {
         _initMilestones();
         vm.prank(contractor1);
-        vm.expectRevert("Empty IPFS hash");
+        vm.expectRevert(); // InvalidIPFSHash
         milestoneEscrow.submitMilestoneProof(tenderId, 0, bytes32(0), GPS_HASH);
     }
 
@@ -413,8 +426,8 @@ contract MilestoneEscrowTest is Test {
 
         Milestone memory m = milestoneEscrow.getMilestone(mid);
 
-        // Warp past proof window
-        vm.warp(m.proof_window + 1);
+        // Warp past proof window + grace period
+        vm.warp(m.proof_window + DEAD_MAN_GRACE_PERIOD + 1);
 
         vm.expectEmit(true, false, false, true);
         emit DeadManTriggered(mid, m.proof_window, randomUser);
@@ -438,7 +451,7 @@ contract MilestoneEscrowTest is Test {
         uint256 expectedAmount = BUDGET / MILESTONE_COUNT;
         Milestone memory m = milestoneEscrow.getMilestone(mid);
 
-        vm.warp(m.proof_window + 1);
+        vm.warp(m.proof_window + DEAD_MAN_GRACE_PERIOD + 1);
 
         vm.expectEmit(true, true, false, true);
         emit FundsRedistributed(mid, tenderId, expectedAmount, govt);
@@ -452,7 +465,7 @@ contract MilestoneEscrowTest is Test {
         uint256[] memory ids = milestoneEscrow.getMilestonesByTender(tenderId);
         Milestone memory m = milestoneEscrow.getMilestone(ids[0]);
 
-        vm.warp(m.proof_window + 1);
+        vm.warp(m.proof_window + DEAD_MAN_GRACE_PERIOD + 1);
         vm.prank(randomUser);
         milestoneEscrow.checkDeadManSwitch(ids[0]);
 
@@ -585,8 +598,7 @@ contract MilestoneEscrowTest is Test {
         vm.prank(govt);
         uint256 tid = registry.postTender(keccak256("fuzz"), budget, deadline, mCount);
 
-        vm.prank(contractor1);
-        escrow.submitBid{value: MIN_STAKE}(tid, budget);
+        _commitAndRevealBid(contractor1, tid, budget, MIN_STAKE);
 
         vm.warp(deadline + 1);
         vm.prank(govt);

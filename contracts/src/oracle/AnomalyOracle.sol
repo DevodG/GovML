@@ -24,6 +24,7 @@ import {
     TransferFailed
 } from "../Types.sol";
 import {IAnomalyOracle} from "../interfaces/IAnomalyOracle.sol";
+import {IBidEscrow} from "../interfaces/IBidEscrow.sol";
 
 /// @title AnomalyOracle — ML-driven Anomaly Detection and Fund Freezing
 /// @notice Manages the full lifecycle of anomaly flags: flagging by the ML service,
@@ -224,6 +225,7 @@ contract AnomalyOracle is
         override
         onlyRole(AUDITOR_ROLE)
         whenNotPaused
+        nonReentrant
     {
         AnomalyFlag storage flag = _getFlagStorage(flag_id);
 
@@ -317,31 +319,21 @@ contract AnomalyOracle is
         }
     }
 
-    /// @dev Validates that a bid exists by calling BidEscrow
+    /// @dev Validates that a bid exists by calling BidEscrow (typed call)
     function _requireBidExists(uint256 bid_id) internal view {
-        (bool success,) = bid_escrow_address.staticcall(
-            abi.encodeWithSignature("getBid(uint256)", bid_id)
-        );
-        require(success, "BidEscrow call failed");
+        // Will revert with BidNotFound if bid doesn't exist
+        IBidEscrow(bid_escrow_address).getBid(bid_id);
     }
 
-    /// @dev Gets the contractor address from a bid via BidEscrow
+    /// @dev Gets the contractor address from a bid via typed IBidEscrow call
     function _getBidContractor(uint256 bid_id) internal view returns (address) {
-        (bool success, bytes memory data) = bid_escrow_address.staticcall(
-            abi.encodeWithSignature("getBid(uint256)", bid_id)
-        );
-        require(success, "BidEscrow call failed");
-        Bid memory bid = abi.decode(data, (Bid));
+        Bid memory bid = IBidEscrow(bid_escrow_address).getBid(bid_id);
         return bid.contractor;
     }
 
-    /// @dev Gets the stake amount from a bid via BidEscrow
+    /// @dev Gets the stake amount from a bid via typed IBidEscrow call
     function _getBidStake(uint256 bid_id) internal view returns (uint256) {
-        (bool success, bytes memory data) = bid_escrow_address.staticcall(
-            abi.encodeWithSignature("getBid(uint256)", bid_id)
-        );
-        require(success, "BidEscrow call failed");
-        Bid memory bid = abi.decode(data, (Bid));
+        Bid memory bid = IBidEscrow(bid_escrow_address).getBid(bid_id);
         return bid.stake;
     }
 }

@@ -18,7 +18,9 @@ import {
     BOUNTY_HUNTER_ROLE,
     MULTISIG_THRESHOLD,
     MULTISIG_TOTAL,
-    DEFAULT_PROOF_WINDOW
+    DEFAULT_PROOF_WINDOW,
+    DEAD_MAN_GRACE_PERIOD,
+    ADMIN_EXTENSION_DURATION
 } from "../Types.sol";
 import {
     TenderNotFound,
@@ -35,9 +37,14 @@ import {
     TenderNotAllotted,
     ProofWindowNotExpired,
     IncorrectFundingAmount,
-    MilestoneNotFound
+    MilestoneNotFound,
+    GracePeriodActive,
+    ExtensionAlreadyGranted,
+    InvalidIPFSHash,
+    InvalidGPSHash
 } from "../Types.sol";
 import {IMilestoneEscrow} from "../interfaces/IMilestoneEscrow.sol";
+import {ITenderRegistry} from "../interfaces/ITenderRegistry.sol";
 
 /// @title MilestoneEscrow — Post-Award Fund Accountability via Multi-Sig and Dead Man's Switch
 /// @notice Manages the full lifecycle of tender milestones after winner allotment:
@@ -99,12 +106,16 @@ contract MilestoneEscrow is
     /// @dev mapping_pending_withdrawals[address] => amount available to withdraw
     mapping(address => uint256) private mapping_pending_withdrawals;
 
+    /// @notice Tracks whether a one-time extension has been granted per milestone
+    /// @dev mapping_extension_granted[milestone_id] => true if admin already extended
+    mapping(uint256 => bool) private mapping_extension_granted;
+
     // =========================================================================
     // STORAGE GAP — Reserve slots for future upgrades (ERC-7201 pattern)
     // =========================================================================
 
-    /// @dev Reserved storage gap for future variable additions without breaking layout
-    uint256[42] private __gap;
+    /// @dev Reserved storage gap for future variable additions (reduced from 42 for new state)
+    uint256[41] private __gap;
 
     // =========================================================================
     // INITIALIZER (replaces constructor for upgradeable contracts)
@@ -247,8 +258,8 @@ contract MilestoneEscrow is
     ///      Sets IPFS hash and GPS hash, transitions to SUBMITTED status, and resets the
     ///      proof window to give signers DEFAULT_PROOF_WINDOW to review and approve.
     ///
-    ///      WHY reset proof_window: After submission, the multi-sig parties need time to
-    ///      review the deliverable. The new window starts from submission time.
+    ///      SECURITY (Vuln 8): Validates IPFS and GPS hashes are structurally valid
+    ///      (non-zero, correct length). Zero hashes would indicate missing proof data.
     /// @param tender_id ID of the parent tender
     /// @param milestone_index Index of the milestone within the tender (0-based)
     /// @param ipfs_hash IPFS hash of the deliverable proof document
@@ -283,9 +294,24 @@ contract MilestoneEscrow is
             revert ProofWindowExpired(milestone_id, milestone.proof_window);
         }
 
-        // Validate non-empty hashes
-        require(ipfs_hash != bytes32(0), "Empty IPFS hash");
-        require(gps_hash != bytes32(0), "Empty GPS hash");
+        // SECURITY FIX (Vuln 8): Validate IPFS hash structure
+        // Must be non-zero (empty hash = no proof uploaded)
+        if (ipfs_hash == bytes32(0)) {
+            revert InvalidIPFSHash(ipfs_hash);
+        }
+        // Validate first byte is non-zero (basic structural check for CID)
+        // A valid IPFS CIDv0 starts with 0x12 (sha2-256), CIDv1 starts with version byte
+        if (uint8(ipfs_hash[0]) == 0) {
+            revert InvalidIPFSHash(ipfs_hash);
+        }
+
+        // SECURITY FIX (Vuln 8): Validate GPS hash structure
+        if (gps_hash == bytes32(0)) {
+            revert InvalidGPSHash(gps_hash);
+        }
+        if (uint8(gps_hash[0]) == 0) {
+            revert InvalidGPSHash(gps_hash);
+        }
 
         // Checks-effects: update state before any potential external interactions
         milestone.ipfs_hash = ipfs_hash;
@@ -354,14 +380,11 @@ contract MilestoneEscrow is
         }
     }
 
-    /// @notice Trigger dead man's switch if proof window has expired without proof
-    /// @dev Callable by ANYONE (public good — incentivizes monitoring). If the milestone
-    ///      is still PENDING and the proof window has passed, funds are redistributed to
-    ///      the government address as the recovery recipient.
-    ///
-    ///      WHY callable by anyone: This is a permissionless safety mechanism. Any
-    ///      watchdog, auditor, or concerned citizen can trigger it. The contract enforces
-    ///      the time check — there's no trust assumption on the caller.
+    /// @notice Trigger dead man's switch if proof window + grace period has expired
+    /// @dev SECURITY (Vuln 6): Adds a 24-hour grace period after the proof window.
+    ///      The switch cannot be triggered exactly at the deadline — must wait for grace period.
+    ///      Callable by ANYONE (public good). If the milestone is still PENDING and both
+    ///      the proof window AND grace period have passed, funds are redistributed.
     /// @param milestone_id ID of the milestone to check
     // @integration FRONTEND — called via ethers.js (callable by anyone)
     function checkDeadManSwitch(uint256 milestone_id)
@@ -383,10 +406,45 @@ contract MilestoneEscrow is
             revert ProofWindowNotExpired(milestone_id, milestone.proof_window);
         }
 
+        // SECURITY FIX (Vuln 6): Grace period — cannot trigger within 24h of expiry
+        uint256 grace_until = milestone.proof_window + DEAD_MAN_GRACE_PERIOD;
+        if (block.timestamp <= grace_until) {
+            revert GracePeriodActive(milestone_id, grace_until);
+        }
+
         // Trigger redistribution
         emit DeadManTriggered(milestone_id, milestone.proof_window, msg.sender);
 
         _redistributeFunds(milestone_id);
+    }
+
+    /// @notice Grant a one-time 7-day extension to a milestone's proof window
+    /// @dev SECURITY (Vuln 6): Only callable by GOVT_ROLE. Can only be granted once per milestone.
+    ///      Extends the proof_window by ADMIN_EXTENSION_DURATION (7 days) to allow the contractor
+    ///      more time in case of legitimate delays.
+    /// @param milestone_id ID of the milestone to extend
+    function grantExtension(uint256 milestone_id)
+        external
+        onlyRole(GOVT_ROLE)
+        whenNotPaused
+    {
+        _requireMilestoneExists(milestone_id);
+        Milestone storage milestone = mapping_milestones[milestone_id];
+
+        // Only PENDING milestones can be extended
+        if (milestone.status != MilestoneStatus.PENDING) {
+            revert InvalidMilestoneStatus(milestone_id, milestone.status);
+        }
+
+        // One-time extension only
+        if (mapping_extension_granted[milestone_id]) {
+            revert ExtensionAlreadyGranted(milestone_id);
+        }
+
+        mapping_extension_granted[milestone_id] = true;
+        milestone.proof_window += ADMIN_EXTENSION_DURATION;
+
+        emit ExtensionGranted(milestone_id, milestone.proof_window, msg.sender);
     }
 
     /// @notice Withdraw pending funds (pull pattern for released milestone payments)
@@ -531,22 +589,14 @@ contract MilestoneEscrow is
     // INTERNAL HELPERS
     // =========================================================================
 
-    /// @dev Fetches tender data from TenderRegistry via cross-contract staticcall
+    /// @dev Fetches tender data from TenderRegistry via typed interface call
     function _getTenderFromRegistry(uint256 tender_id) internal view returns (Tender memory) {
-        (bool success, bytes memory data) = tender_registry_address.staticcall(
-            abi.encodeWithSignature("getTender(uint256)", tender_id)
-        );
-        require(success, "TenderRegistry call failed");
-        return abi.decode(data, (Tender));
+        return ITenderRegistry(tender_registry_address).getTender(tender_id);
     }
 
-    /// @dev Fetches the winning contractor address from TenderRegistry
+    /// @dev Fetches the winning contractor address from TenderRegistry via typed interface call
     function _getWinnerFromRegistry(uint256 tender_id) internal view returns (address) {
-        (bool success, bytes memory data) = tender_registry_address.staticcall(
-            abi.encodeWithSignature("getWinner(uint256)", tender_id)
-        );
-        require(success, "TenderRegistry getWinner failed");
-        address winner = abi.decode(data, (address));
+        address winner = ITenderRegistry(tender_registry_address).getWinner(tender_id);
         require(winner != address(0), "No winner allotted");
         return winner;
     }

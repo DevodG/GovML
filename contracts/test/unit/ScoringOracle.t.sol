@@ -13,7 +13,8 @@ import {
     BidStatus,
     GOVT_ROLE,
     ORACLE_ROLE,
-    ZKP_SCALING_FACTOR
+    ZKP_SCALING_FACTOR,
+    COMMIT_WINDOW_BLOCKS
 } from "../../src/Types.sol";
 import {
     ZeroAddressNotAllowed,
@@ -76,12 +77,21 @@ contract ScoringOracleTest is Test {
         vm.prank(govt);
         tenderId = registry.postTender(IPFS_HASH, BUDGET, deadline, MILESTONE_COUNT);
 
-        // Submit bids
-        vm.prank(contractor1);
-        bid1Id = escrow.submitBid{value: STAKE_AMOUNT}(tenderId, 80 ether);
+        // Submit bids via commit-reveal (batch: commit both, then reveal both)
+        bytes32 salt1 = keccak256(abi.encodePacked(contractor1, uint256(80 ether)));
+        bytes32 salt2 = keccak256(abi.encodePacked(contractor2, uint256(75 ether)));
 
+        vm.prank(contractor1);
+        escrow.commitBid{value: STAKE_AMOUNT}(tenderId, keccak256(abi.encodePacked(uint256(80 ether), salt1)));
         vm.prank(contractor2);
-        bid2Id = escrow.submitBid{value: STAKE_AMOUNT}(tenderId, 75 ether);
+        escrow.commitBid{value: STAKE_AMOUNT}(tenderId, keccak256(abi.encodePacked(uint256(75 ether), salt2)));
+
+        vm.roll(block.number + COMMIT_WINDOW_BLOCKS + 1);
+
+        vm.prank(contractor1);
+        bid1Id = escrow.submitBid(tenderId, 80 ether, salt1);
+        vm.prank(contractor2);
+        bid2Id = escrow.submitBid(tenderId, 75 ether, salt2);
 
         // Close bidding
         vm.warp(deadline + 1);
@@ -89,12 +99,22 @@ contract ScoringOracleTest is Test {
         registry.closeBidding(tenderId);
     }
 
+    function _commitAndRevealBid(address bidder, uint256 _tenderId, uint256 amount, uint256 stakeAmt) internal returns (uint256 bidId) {
+        bytes32 salt = keccak256(abi.encodePacked(bidder, amount));
+        bytes32 commitHash = keccak256(abi.encodePacked(amount, salt));
+        vm.prank(bidder);
+        escrow.commitBid{value: stakeAmt}(_tenderId, commitHash);
+        vm.roll(block.number + COMMIT_WINDOW_BLOCKS + 1);
+        vm.prank(bidder);
+        bidId = escrow.submitBid(_tenderId, amount, salt);
+    }
+
     // =========================================================================
     // recordScore — HAPPY PATH
     // =========================================================================
 
     function test_recordScore_success() public {
-        uint256 score = 850_000; // 850.000 scaled by 1e6
+        uint256 score = 85_000_000; // 85.0 scaled by ZKP_SCALING_FACTOR (1e6)
 
         vm.prank(oracleAddr);
         oracle.recordScore(tenderId, bid1Id, score, hex"deadbeef", new uint256[](0));
@@ -104,7 +124,7 @@ contract ScoringOracleTest is Test {
     }
 
     function test_recordScore_emitsEvent() public {
-        uint256 score = 850_000;
+        uint256 score = 85_000_000;
 
         vm.expectEmit(true, true, false, true);
         emit ScoreRecorded(tenderId, bid1Id, score, block.timestamp);
@@ -115,12 +135,12 @@ contract ScoringOracleTest is Test {
 
     function test_recordScore_multipleBids() public {
         vm.startPrank(oracleAddr);
-        oracle.recordScore(tenderId, bid1Id, 850_000, hex"aa", new uint256[](0));
-        oracle.recordScore(tenderId, bid2Id, 720_000, hex"bb", new uint256[](0));
+        oracle.recordScore(tenderId, bid1Id, 85_000_000, hex"aa", new uint256[](0));
+        oracle.recordScore(tenderId, bid2Id, 72_000_000, hex"bb", new uint256[](0));
         vm.stopPrank();
 
-        assertEq(oracle.getScore(bid1Id), 850_000);
-        assertEq(oracle.getScore(bid2Id), 720_000);
+        assertEq(oracle.getScore(bid1Id), 85_000_000);
+        assertEq(oracle.getScore(bid2Id), 72_000_000);
     }
 
     // =========================================================================
@@ -130,21 +150,21 @@ contract ScoringOracleTest is Test {
     function test_recordScore_reverts_notOracle() public {
         vm.prank(randomUser);
         vm.expectRevert(); // AccessControl
-        oracle.recordScore(tenderId, bid1Id, 850_000, hex"", new uint256[](0));
+        oracle.recordScore(tenderId, bid1Id, 85_000_000, hex"", new uint256[](0));
     }
 
     function test_recordScore_reverts_duplicateScore() public {
         vm.prank(oracleAddr);
-        oracle.recordScore(tenderId, bid1Id, 850_000, hex"aa", new uint256[](0));
+        oracle.recordScore(tenderId, bid1Id, 85_000_000, hex"aa", new uint256[](0));
 
         vm.prank(oracleAddr);
         vm.expectRevert(abi.encodeWithSelector(ScoreAlreadyRecorded.selector, bid1Id));
-        oracle.recordScore(tenderId, bid1Id, 900_000, hex"bb", new uint256[](0));
+        oracle.recordScore(tenderId, bid1Id, 90_000_000, hex"bb", new uint256[](0));
     }
 
     function test_recordScore_reverts_zeroScore() public {
         vm.prank(oracleAddr);
-        vm.expectRevert("Score must be > 0");
+        vm.expectRevert(); // InvalidScoreRange(0, MIN_SCORE, MAX_SCORE)
         oracle.recordScore(tenderId, bid1Id, 0, hex"", new uint256[](0));
     }
 
@@ -156,13 +176,12 @@ contract ScoringOracleTest is Test {
 
         // Submit a bid on it
         vm.deal(contractor1, 10 ether);
-        vm.prank(contractor1);
-        uint256 newBidId = escrow.submitBid{value: STAKE_AMOUNT}(openTenderId, 40 ether);
+        uint256 newBidId = _commitAndRevealBid(contractor1, openTenderId, 40 ether, STAKE_AMOUNT);
 
         // Try to score — tender is OPEN, not CLOSED
         vm.prank(oracleAddr);
         vm.expectRevert(abi.encodeWithSelector(TenderNotClosed.selector, openTenderId, TenderStatus.OPEN));
-        oracle.recordScore(openTenderId, newBidId, 500_000, hex"", new uint256[](0));
+        oracle.recordScore(openTenderId, newBidId, 50_000_000, hex"", new uint256[](0));
     }
 
     function test_recordScore_reverts_bidWrongTender() public {
@@ -178,7 +197,7 @@ contract ScoringOracleTest is Test {
         // Try to record score for bid1 (belongs to tenderId) under tid2
         vm.prank(oracleAddr);
         vm.expectRevert("Bid does not belong to tender");
-        oracle.recordScore(tid2, bid1Id, 500_000, hex"", new uint256[](0));
+        oracle.recordScore(tid2, bid1Id, 50_000_000, hex"", new uint256[](0));
     }
 
     // =========================================================================
@@ -209,7 +228,7 @@ contract ScoringOracleTest is Test {
 
         vm.prank(oracleAddr);
         vm.expectRevert();
-        oracle.recordScore(tenderId, bid1Id, 850_000, hex"", new uint256[](0));
+        oracle.recordScore(tenderId, bid1Id, 85_000_000, hex"", new uint256[](0));
     }
 
     // =========================================================================
@@ -217,8 +236,8 @@ contract ScoringOracleTest is Test {
     // =========================================================================
 
     function testFuzz_recordScore_scoreRange(uint256 score) public {
-        vm.assume(score > 0);
-        vm.assume(score <= 10 * ZKP_SCALING_FACTOR); // max 10.000000
+        vm.assume(score >= 1_000_000); // MIN_SCORE = 1 * ZKP_SCALING_FACTOR
+        vm.assume(score <= 100_000_000); // MAX_SCORE = 100 * ZKP_SCALING_FACTOR
 
         vm.prank(oracleAddr);
         oracle.recordScore(tenderId, bid1Id, score, hex"aa", new uint256[](0));

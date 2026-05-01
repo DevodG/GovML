@@ -88,6 +88,11 @@ interface ITenderRegistry {
     // @integration FRONTEND — called via ethers.js
     function getTender(uint256 tender_id) external view returns (Tender memory);
 
+    /// @notice Get the winning contractor address for a tender
+    /// @param tender_id ID of the tender
+    /// @return The winner's address
+    function getWinner(uint256 tender_id) external view returns (address);
+
     /// @notice Get the total number of tenders posted
     /// @return The current tender count
     function getTenderCount() external view returns (uint256);
