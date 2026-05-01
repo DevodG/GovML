@@ -15,6 +15,8 @@ const milestoneRoutes = require('./routes/milestones');
 const bountyRoutes = require('./routes/bounty');
 const auditorRoutes = require('./routes/auditor');
 const publicRoutes = require('./routes/public');
+const govRoutes = require('./routes/gov');
+const contractorRoutes = require('./routes/contractor');
 
 // Import middleware
 const errorHandler = require('./middleware/errorHandler');
@@ -67,6 +69,8 @@ app.use('/api/milestones', milestoneRoutes);
 app.use('/api/bounty', bountyRoutes);
 app.use('/api/auditor', auditorRoutes);
 app.use('/api/public', publicRoutes);
+app.use('/api/gov', govRoutes);
+app.use('/api/contractor', contractorRoutes);
 
 // Error handling
 app.use(errorHandler);

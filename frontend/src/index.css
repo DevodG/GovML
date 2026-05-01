@@ -1,0 +1,51 @@
+@import "tailwindcss";
+
+:root {
+  /* Backgrounds */
+  --bg-base:       #0A0C10;   /* near-black page background */
+  --bg-surface:    #0F1318;   /* card surfaces */
+  --bg-elevated:   #151A22;   /* modals, dropdowns */
+  --bg-border:     #1E2530;   /* subtle borders */
+
+  /* Brand colors */
+  --brand-blue:    #3B8BD4;   /* primary CTA, links */
+  --brand-teal:    #1D9E75;   /* success, confirmed on-chain */
+  --brand-amber:   #EF9F27;   /* warnings, staking, score */
+  --brand-purple:  #7F77DD;   /* ZKP, ML model indicators */
+  --brand-coral:   #D85A30;   /* fraud flags, danger */
+  --brand-green:   #639922;   /* milestone complete */
+
+  /* Text */
+  --text-primary:   #E8EDF5;
+  --text-secondary: #8B95A8;
+  --text-muted:     #4A5568;
+
+  /* Glass effect */
+  --glass-bg:      rgba(255,255,255,0.03);
+  --glass-border:  rgba(255,255,255,0.08);
+  --glass-hover:   rgba(255,255,255,0.06);
+}
+
+body {
+  background-color: var(--bg-base);
+  color: var(--text-primary);
+  font-family: 'Inter', system-ui, sans-serif;
+  margin: 0;
+  padding: 0;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg-base);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--bg-border);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}

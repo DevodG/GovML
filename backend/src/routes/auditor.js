@@ -266,4 +266,141 @@ router.get('/statistics', auth, authorize('auditor'), async (req, res) => {
   }
 });
 
+// Get bid analysis
+router.get('/bids', auth, authorize('auditor'), async (req, res) => {
+  try {
+    const { tenderId, page = 1, limit = 20 } = req.query;
+
+    const filter = {};
+    if (tenderId) filter.tenderId = tenderId;
+
+    const bids = await Bid.find(filter)
+      .populate('tenderId', 'title tenderId')
+      .populate('contractorId', 'name organization walletAddress')
+      .sort({ mlScore: -1 })
+      .skip((page - 1) * limit)
+      .limit(parseInt(limit));
+
+    const total = await Bid.countDocuments(filter);
+
+    res.json({
+      bids: bids.map((b, index) => ({
+        id: `B-${b._id.toString().slice(-4)}`,
+        contractor: b.contractorId?.name || 'N/A',
+        wallet: b.contractorId?.walletAddress || 'N/A',
+        amount: b.amount,
+        score: b.mlScore || 0,
+        fraud: b.fraudScore >= 0.7 ? 'high' : b.fraudScore >= 0.4 ? 'medium' : 'clean',
+        zkp: b.zkpVerified || false,
+        rank: index + 1
+      })),
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        pages: Math.ceil(total / limit)
+      }
+    });
+  } catch (error) {
+    console.error('Get bid analysis error:', error);
+    res.status(500).json({ error: 'Failed to get bid analysis' });
+  }
+});
+
+// Get specific report
+router.get('/reports/:id', auth, authorize('auditor'), async (req, res) => {
+  try {
+    const auditLog = await AuditLog.findById(req.params.id)
+      .populate('tenderId')
+      .populate('entityId');
+
+    if (!auditLog) {
+      return res.status(404).json({ error: 'Report not found' });
+    }
+
+    res.json({
+      report: {
+        id: auditLog._id,
+        type: auditLog.type,
+        anomalyType: auditLog.anomalyType,
+        severity: auditLog.severity,
+        description: auditLog.description,
+        status: auditLog.status,
+        createdAt: auditLog.createdAt,
+        tender: auditLog.tenderId,
+        entity: auditLog.entityId
+      }
+    });
+  } catch (error) {
+    console.error('Get report error:', error);
+    res.status(500).json({ error: 'Failed to get report' });
+  }
+});
+
+// Sign as oracle
+router.post('/oracle/sign', auth, authorize('auditor'), [
+  body('milestoneId').notEmpty().withMessage('Milestone ID required')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const { milestoneId } = req.body;
+    const milestone = await Milestone.findById(milestoneId);
+
+    if (!milestone) {
+      return res.status(404).json({ error: 'Milestone not found' });
+    }
+
+    // Add auditor signature
+    const signatureIndex = milestone.signatures.findIndex(
+      s => s.signerType === 'auditor'
+    );
+
+    if (signatureIndex === -1) {
+      milestone.signatures.push({
+        signerType: 'auditor',
+        signed: true,
+        signedAt: new Date(),
+        signerAddress: req.user.walletAddress
+      });
+    } else {
+      milestone.signatures[signatureIndex].signed = true;
+      milestone.signatures[signatureIndex].signedAt = new Date();
+      milestone.signatures[signatureIndex].signerAddress = req.user.walletAddress;
+    }
+
+    // Check if all signatures are collected
+    const allSigned = milestone.signatures.every(s => s.signed);
+    if (allSigned) {
+      milestone.status = 'approved';
+      milestone.approvedAt = new Date();
+    }
+
+    await milestone.save();
+
+    // Broadcast to WebSocket clients
+    if (global.broadcast) {
+      global.broadcast({
+        type: 'oracle_signed',
+        data: milestone
+      });
+    }
+
+    res.json({
+      message: 'Signed as oracle successfully',
+      milestone: {
+        id: milestone._id,
+        status: milestone.status,
+        signatures: milestone.signatures
+      }
+    });
+  } catch (error) {
+    console.error('Sign as oracle error:', error);
+    res.status(500).json({ error: 'Failed to sign as oracle' });
+  }
+});
+
 module.exports = router;
