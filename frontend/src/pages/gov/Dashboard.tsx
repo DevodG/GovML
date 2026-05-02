@@ -1,102 +1,50 @@
-import { useState, useEffect } from 'react'
-import { Card } from '../../components/ui'
-import { FundFlowChart } from '../../components/charts/FundFlow'
-import { FileText, CheckCircle, AlertTriangle, IndianRupee } from 'lucide-react'
-import { formatINR } from '../../lib/format'
-import api from '../../lib/api'
-import { useAuthStore } from '../../store/authStore'
+import { LayoutDashboard, FileText, CheckCircle, AlertTriangle, TrendingUp } from 'lucide-react'
+
+const stats = [
+  { label: 'Active Tenders', value: '12', icon: FileText, color: 'var(--gov)' },
+  { label: 'Pending Approvals', value: '5', icon: CheckCircle, color: 'var(--warning)' },
+  { label: 'High Risk Anomalies', value: '2', icon: AlertTriangle, color: 'var(--danger)' },
+  { label: 'Total Escrow', value: '₹84 Cr', icon: TrendingUp, color: 'var(--success)' },
+]
 
 export default function GovDashboard() {
-  const { token } = useAuthStore()
-  const [stats, setStats] = useState<any>(null)
-  const [recentTenders, setRecentTenders] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    const loadDashboard = async () => {
-      if (!token) return
-
-      try {
-        const response = await api.gov.getDashboard(token)
-        setStats(response.stats)
-        setRecentTenders(response.recentTenders || [])
-      } catch (error) {
-        console.error('Failed to load dashboard:', error)
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    loadDashboard()
-  }, [token])
-
-  const statsData = stats ? [
-    { label: 'Active Tenders', value: stats.activeTenders || 0, icon: FileText, color: 'text-[#3B8BD4]', bg: 'bg-[#3B8BD4]/10' },
-    { label: 'Pending Approvals', value: stats.pendingApprovals || 0, icon: CheckCircle, color: 'text-[#EF9F27]', bg: 'bg-[#EF9F27]/10' },
-    { label: 'High Risk Anomalies', value: stats.highRiskAnomalies || 0, icon: AlertTriangle, color: 'text-[#D85A30]', bg: 'bg-[#D85A30]/10' },
-    { label: 'Total Escrow', value: `₹${((stats.totalEscrow || 0) / 10000000).toFixed(1)}Cr`, icon: IndianRupee, color: 'text-[#1D9E75]', bg: 'bg-[#1D9E75]/10' },
-  ] : []
-
-  if (loading) {
-    return (
-      <div className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {[1, 2, 3, 4].map(i => (
-            <Card key={i} className="h-24 animate-pulse bg-[#151A22]" />
-          ))}
-        </div>
-      </div>
-    )
-  }
-
   return (
-    <div className="space-y-6">
-      {/* Stats Row */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {statsData.map((s, i) => (
-          <Card key={i} className="flex items-center gap-4">
-            <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${s.bg} ${s.color}`}>
-              <s.icon size={24} />
+    <div className="animate-fade-in">
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 28 }}>
+        <LayoutDashboard size={20} color="var(--gov)" />
+        <h1 style={{ fontSize: 20, fontWeight: 700, letterSpacing: '-0.02em' }}>Dashboard</h1>
+      </div>
+
+      {/* Stats Grid */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 14, marginBottom: 28 }}>
+        {stats.map(s => (
+          <div key={s.label} className="card" style={{ padding: 20 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+              <span style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 500 }}>{s.label}</span>
+              <s.icon size={16} style={{ color: s.color }} />
             </div>
-            <div>
-              <div className="text-2xl font-bold text-[#E8EDF5] tracking-tight">{s.value}</div>
-              <div className="text-sm text-[#8B95A8]">{s.label}</div>
-            </div>
-          </Card>
+            <div style={{ fontSize: 28, fontWeight: 700, letterSpacing: '-0.02em', color: 'var(--text-primary)' }}>{s.value}</div>
+          </div>
         ))}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Chart */}
-        <Card className="col-span-2">
-          <h3 className="text-lg font-semibold text-[#E8EDF5] mb-6">Fund Utilisation vs Allocation</h3>
-          <FundFlowChart />
-        </Card>
+      {/* Chart placeholder */}
+      <div className="card" style={{ padding: 24, marginBottom: 20 }}>
+        <h3 style={{ fontSize: 14, fontWeight: 600, marginBottom: 20 }}>Fund Utilisation vs Allocation</h3>
+        <div style={{ height: 200, display: 'flex', alignItems: 'end', gap: 8, padding: '0 20px' }}>
+          {['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul'].map((m, i) => (
+            <div key={m} style={{ flex: 1, textAlign: 'center' }}>
+              <div style={{ height: [60, 45, 90, 75, 65, 80, 70][i], background: 'var(--gov)', borderRadius: '4px 4px 0 0', marginBottom: 8, opacity: 0.8 }} />
+              <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>{m}</span>
+            </div>
+          ))}
+        </div>
+      </div>
 
-        {/* Recent Tenders */}
-        <Card className="flex flex-col">
-          <div className="flex justify-between items-center mb-6">
-            <h3 className="text-lg font-semibold text-[#E8EDF5]">Recent Tenders</h3>
-            <button className="text-sm text-[#3B8BD4] hover:text-[#2A75BB]">View All</button>
-          </div>
-
-          <div className="space-y-4 flex-1">
-            {recentTenders.length > 0 ? recentTenders.map((t: any) => (
-              <div key={t._id} className="flex justify-between items-center p-3 rounded-lg hover:bg-[rgba(255,255,255,0.03)] transition-colors border border-transparent hover:border-[rgba(255,255,255,0.05)] cursor-pointer">
-                <div>
-                  <div className="font-medium text-[#E8EDF5] truncate max-w-[200px]" title={t.title}>{t.title}</div>
-                  <div className="text-xs text-[#8B95A8] mt-1">{t.tenderId} • {t.category}</div>
-                </div>
-                <div className="text-right">
-                  <div className="font-medium text-[#1D9E75]">{formatINR(t.budget)}</div>
-                  <div className="text-xs text-[#4A5568] mt-1 font-mono">{t._id?.toString().slice(0,8)}...</div>
-                </div>
-              </div>
-            )) : (
-              <div className="text-center text-[#8B95A8] py-8">No recent tenders</div>
-            )}
-          </div>
-        </Card>
+      {/* Recent Tenders */}
+      <div className="card" style={{ padding: 24 }}>
+        <h3 style={{ fontSize: 14, fontWeight: 600, marginBottom: 16 }}>Recent Tenders</h3>
+        <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>No tenders yet. Create one to get started.</p>
       </div>
     </div>
   )

@@ -1,13 +1,22 @@
-import { createConfig, http } from 'wagmi'
-import { polygonMumbai } from 'wagmi/chains'
+import { http, createConfig } from 'wagmi'
+import { sepolia, hardhat } from 'wagmi/chains'
 import { injected } from 'wagmi/connectors'
 
+const isDev = import.meta.env.DEV
+
 export const wagmiConfig = createConfig({
-  chains: [polygonMumbai],
+  chains: isDev ? [hardhat, sepolia] : [sepolia],
   connectors: [
     injected(),
   ],
   transports: {
-    [polygonMumbai.id]: http('https://rpc-mumbai.maticvigil.com'),
+    [hardhat.id]: http(),
+    [sepolia.id]: http(),
   },
 })
+
+declare module 'wagmi' {
+  interface Register {
+    config: typeof wagmiConfig
+  }
+}

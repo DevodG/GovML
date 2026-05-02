@@ -1,101 +1,44 @@
-import { useState, useEffect } from 'react'
-import { Card, Badge } from '../../components/ui'
-import { formatINR } from '../../lib/format'
-import { MapPin, ChevronRight, Clock, Building2 } from 'lucide-react'
-import api from '../../lib/api'
+import { Search, Filter } from 'lucide-react'
 
-const cats = ['All', 'Infrastructure', 'Energy', 'Smart City', 'Healthcare']
+const mockTenders = [
+  { id: 'T-001', title: 'Smart Highway — NH48 Bangalore–Pune', category: 'Infrastructure', budget: '₹245 Cr', deadline: '2026-06-15', status: 'Open', bids: 8 },
+  { id: 'T-002', title: 'District Hospital Digitization — Tier 2', category: 'Healthcare', budget: '₹18.5 Cr', deadline: '2026-05-28', status: 'Open', bids: 3 },
+  { id: 'T-003', title: 'Solar Micro-Grid — 12 Villages', category: 'Infrastructure', budget: '₹42 Cr', deadline: '2026-07-01', status: 'Open', bids: 12 },
+]
 
 export default function BrowseTenders() {
-  const [cat, setCat] = useState('All')
-  const [search, setSearch] = useState('')
-  const [tenders, setTenders] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    const loadTenders = async () => {
-      try {
-        const response = await api.public.getTenders()
-        setTenders(response.tenders || [])
-      } catch (error) {
-        console.error('Failed to load tenders:', error)
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    loadTenders()
-  }, [])
-
-  const filtered = tenders.filter(t =>
-    (cat === 'All' || t.category === cat) &&
-    (t.title.toLowerCase().includes(search.toLowerCase()) || t.tenderId?.includes(search))
-  )
-
-  if (loading) {
-    return (
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold text-[#E8EDF5] tracking-tight">Browse Tenders</h1>
-          <p className="text-sm text-[#8B95A8] mt-1">Active government tenders open for bidding</p>
-        </div>
-        <div className="space-y-3">
-          {[1, 2, 3, 4].map(i => (
-            <Card key={i} className="h-24 animate-pulse bg-[#151A22]" />
-          ))}
-        </div>
-      </div>
-    )
-  }
-
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-[#E8EDF5] tracking-tight">Browse Tenders</h1>
-        <p className="text-sm text-[#8B95A8] mt-1">Active government tenders open for bidding</p>
-      </div>
-
-      <div className="flex items-center gap-3 flex-wrap">
-        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search tenders..."
-          className="bg-[#151A22] border border-[#1E2530] rounded-lg px-3 py-2 text-sm text-[#E8EDF5] placeholder-[#4A5568] outline-none focus:border-[#3B8BD4] transition-colors w-64" />
-        <div className="flex gap-2">
-          {cats.map(c => (
-            <button key={c} onClick={() => setCat(c)}
-              className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${cat === c ? 'bg-[#3B8BD4] text-white' : 'bg-[#151A22] border border-[#1E2530] text-[#8B95A8] hover:text-[#E8EDF5]'}`}>
-              {c}
-            </button>
-          ))}
+    <div className="animate-fade-in">
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
+        <h1 style={{ fontSize: 20, fontWeight: 700 }}>Browse Tenders</h1>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <div style={{ position: 'relative' }}>
+            <Search size={14} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+            <input className="input" placeholder="Search tenders..." style={{ paddingLeft: 34, width: 240 }} />
+          </div>
+          <button className="btn btn-ghost"><Filter size={14} /> Filter</button>
         </div>
       </div>
 
-      <div className="space-y-3">
-        {filtered.length > 0 ? filtered.map(t => (
-          <Card key={t._id} className="hover:border-[rgba(255,255,255,0.12)] transition-all cursor-pointer group">
-            <div className="flex items-center justify-between gap-4">
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="text-xs font-mono text-[#4A5568]">{t.tenderId}</span>
-                  <Badge variant="blue">{t.category}</Badge>
-                  <div className="flex items-center gap-1 text-xs text-[#8B95A8]"><MapPin size={10} />{t.state || 'N/A'}</div>
-                </div>
-                <h3 className="font-semibold text-[#E8EDF5] group-hover:text-white transition-colors truncate">{t.title}</h3>
-                <div className="flex items-center gap-4 mt-2 text-xs text-[#8B95A8]">
-                  <span className="flex items-center gap-1"><Clock size={11} />Deadline: {new Date(t.deadline).toLocaleDateString()}</span>
-                </div>
+      <div style={{ display: 'grid', gap: 12 }}>
+        {mockTenders.map(t => (
+          <div key={t.id} className="card" style={{ padding: 20, display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }}>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>{t.id}</span>
+                <span className="badge badge-success">{t.status}</span>
               </div>
-              <div className="text-right flex-shrink-0">
-                <div className="text-lg font-bold text-[#1D9E75]">{formatINR(t.budget)}</div>
-                <button className="mt-2 bg-[#3B8BD4] hover:bg-[#2A75BB] text-white text-xs font-semibold px-4 py-1.5 rounded-lg flex items-center gap-1 ml-auto transition-colors">
-                  Bid Now <ChevronRight size={14} />
-                </button>
+              <h3 style={{ fontSize: 15, fontWeight: 600, marginBottom: 4 }}>{t.title}</h3>
+              <div style={{ display: 'flex', gap: 16, fontSize: 12, color: 'var(--text-secondary)' }}>
+                <span>{t.category}</span>
+                <span>{t.budget}</span>
+                <span>Deadline: {t.deadline}</span>
+                <span>{t.bids} bids</span>
               </div>
             </div>
-          </Card>
-        )) : (
-          <Card className="text-center py-12">
-            <p className="text-[#8B95A8]">No tenders found</p>
-          </Card>
-        )}
+            <button className="btn btn-primary" style={{ fontSize: 12, padding: '8px 16px' }}>Commit Bid</button>
+          </div>
+        ))}
       </div>
     </div>
   )

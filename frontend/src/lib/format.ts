@@ -1,25 +1,27 @@
-export function truncateAddress(address: string | undefined): string {
-  if (!address) return ''
-  return `${address.slice(0, 6)}...${address.slice(-4)}`
+export function truncateAddress(addr?: string): string {
+  if (!addr) return '—'
+  return `${addr.slice(0, 6)}…${addr.slice(-4)}`
+}
+
+export function formatETH(wei: bigint | number): string {
+  const val = typeof wei === 'bigint' ? Number(wei) / 1e18 : wei / 1e18
+  return val.toLocaleString('en-IN', { maximumFractionDigits: 4 }) + ' ETH'
 }
 
 export function formatINR(amount: number): string {
-  return new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency: 'INR',
-    maximumFractionDigits: 0,
-  }).format(amount)
+  if (amount >= 1e7) return `₹${(amount / 1e7).toFixed(1)} Cr`
+  if (amount >= 1e5) return `₹${(amount / 1e5).toFixed(1)} L`
+  return `₹${amount.toLocaleString('en-IN')}`
 }
 
-export function formatMATIC(amount: number): string {
-  return `${amount.toLocaleString(undefined, { maximumFractionDigits: 4 })} MATIC`
-}
-
-export function formatDate(dateStr: string): string {
-  const date = new Date(dateStr)
-  return new Intl.DateTimeFormat('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  }).format(date)
+export function timeAgo(date: Date | string): string {
+  const d = typeof date === 'string' ? new Date(date) : date
+  const diff = Date.now() - d.getTime()
+  const mins = Math.floor(diff / 60000)
+  if (mins < 1) return 'just now'
+  if (mins < 60) return `${mins}m ago`
+  const hrs = Math.floor(mins / 60)
+  if (hrs < 24) return `${hrs}h ago`
+  const days = Math.floor(hrs / 24)
+  return `${days}d ago`
 }

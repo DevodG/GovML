@@ -1,331 +1,91 @@
-// API configuration for GovChain frontend
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
-const WS_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:3000';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api'
 
-// API client
-export const api = {
-  // Auth endpoints
-  auth: {
-    login: (email: string, password: string) =>
-      fetch(`${API_BASE_URL}/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
-      }).then(r => r.json()),
-
-    register: (data: any) =>
-      fetch(`${API_BASE_URL}/auth/register`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
-      }).then(r => r.json()),
-
-    getMe: (token: string) =>
-      fetch(`${API_BASE_URL}/auth/me`, {
-        headers: { Authorization: `Bearer ${token}` }
-      }).then(r => r.json()),
-
-    connectWallet: (token: string, walletAddress: string) =>
-      fetch(`${API_BASE_URL}/auth/connect-wallet`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({ walletAddress })
-      }).then(r => r.json())
-  },
-
-  // Government endpoints
-  gov: {
-    getDashboard: (token: string) =>
-      fetch(`${API_BASE_URL}/gov/dashboard`, {
-        headers: { Authorization: `Bearer ${token}` }
-      }).then(r => r.json()),
-
-    getAnomalies: (token: string, params?: any) =>
-      fetch(`${API_BASE_URL}/gov/anomalies${params ? '?' + new URLSearchParams(params) : ''}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      }).then(r => r.json()),
-
-    getPendingMilestones: (token: string) =>
-      fetch(`${API_BASE_URL}/gov/milestones/pending`, {
-        headers: { Authorization: `Bearer ${token}` }
-      }).then(r => r.json()),
-
-    approveMilestone: (token: string, id: string) =>
-      fetch(`${API_BASE_URL}/gov/milestones/${id}/approve`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        }
-      }).then(r => r.json())
-  },
-
-  // Contractor endpoints
-  contractor: {
-    getReputation: (token: string) =>
-      fetch(`${API_BASE_URL}/contractor/reputation`, {
-        headers: { Authorization: `Bearer ${token}` }
-      }).then(r => r.json()),
-
-    submitKYC: (token: string, data: any) =>
-      fetch(`${API_BASE_URL}/contractor/kyc`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify(data)
-      }).then(r => r.json()),
-
-    getBids: (token: string, params?: any) =>
-      fetch(`${API_BASE_URL}/contractor/bids${params ? '?' + new URLSearchParams(params) : ''}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      }).then(r => r.json()),
-
-    getMilestones: (token: string) =>
-      fetch(`${API_BASE_URL}/contractor/milestones`, {
-        headers: { Authorization: `Bearer ${token}` }
-      }).then(r => r.json()),
-
-    submitMilestone: (token: string, id: string, data: any) =>
-      fetch(`${API_BASE_URL}/contractor/milestones/${id}/submit`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify(data)
-      }).then(r => r.json())
-  },
-
-  // Auditor endpoints
-  auditor: {
-    getDashboard: (token: string) =>
-      fetch(`${API_BASE_URL}/auditor/statistics`, {
-        headers: { Authorization: `Bearer ${token}` }
-      }).then(r => r.json()),
-
-    getAnomalies: (token: string, params?: any) =>
-      fetch(`${API_BASE_URL}/auditor/anomalies${params ? '?' + new URLSearchParams(params) : ''}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      }).then(r => r.json()),
-
-    getBids: (token: string, params?: any) =>
-      fetch(`${API_BASE_URL}/auditor/bids${params ? '?' + new URLSearchParams(params) : ''}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      }).then(r => r.json()),
-
-    getReport: (token: string, id: string) =>
-      fetch(`${API_BASE_URL}/auditor/reports/${id}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      }).then(r => r.json()),
-
-    flagAnomaly: (token: string, data: any) =>
-      fetch(`${API_BASE_URL}/auditor/flag`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify(data)
-      }).then(r => r.json()),
-
-    signOracle: (token: string, data: any) =>
-      fetch(`${API_BASE_URL}/auditor/oracle/sign`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify(data)
-      }).then(r => r.json())
-  },
-
-  // Public endpoints
-  public: {
-    getTenders: (params?: any) =>
-      fetch(`${API_BASE_URL}/public/tenders${params ? '?' + new URLSearchParams(params) : ''}`)
-        .then(r => r.json()),
-
-    getTenderFeed: (params?: any) =>
-      fetch(`${API_BASE_URL}/public/tenders/feed${params ? '?' + new URLSearchParams(params) : ''}`)
-        .then(r => r.json()),
-
-    getFundsDashboard: () =>
-      fetch(`${API_BASE_URL}/public/funds/dashboard`)
-        .then(r => r.json()),
-
-    getFundMap: () =>
-      fetch(`${API_BASE_URL}/public/funds/map`)
-        .then(r => r.json()),
-
-    getContractors: (params?: any) =>
-      fetch(`${API_BASE_URL}/public/contractors${params ? '?' + new URLSearchParams(params) : ''}`)
-        .then(r => r.json()),
-
-    getContractor: (id: string) =>
-      fetch(`${API_BASE_URL}/public/contractors/${id}`)
-        .then(r => r.json())
-  },
-
-  // Tender endpoints
-  tenders: {
-    create: (token: string, data: any) =>
-      fetch(`${API_BASE_URL}/tenders`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify(data)
-      }).then(r => r.json()),
-
-    getAll: (token: string, params?: any) =>
-      fetch(`${API_BASE_URL}/tenders${params ? '?' + new URLSearchParams(params) : ''}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      }).then(r => r.json()),
-
-    getById: (token: string, id: string) =>
-      fetch(`${API_BASE_URL}/tenders/${id}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      }).then(r => r.json()),
-
-    closeBids: (token: string, id: string) =>
-      fetch(`${API_BASE_URL}/tenders/${id}/close-bids`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        }
-      }).then(r => r.json()),
-
-    allotWinner: (token: string, id: string, winnerId: string) =>
-      fetch(`${API_BASE_URL}/tenders/${id}/allot`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({ winnerId })
-      }).then(r => r.json())
-  },
-
-  // Bid endpoints
-  bids: {
-    create: (token: string, data: any) =>
-      fetch(`${API_BASE_URL}/bids`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify(data)
-      }).then(r => r.json()),
-
-    getByTender: (token: string, tenderId: string) =>
-      fetch(`${API_BASE_URL}/bids?tenderId=${tenderId}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      }).then(r => r.json())
-  },
-
-  // Bounty endpoints
-  bounty: {
-    register: (token: string, stakeAmount: number) =>
-      fetch(`${API_BASE_URL}/bounty/register`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({ stakeAmount })
-      }).then(r => r.json()),
-
-    getAssignments: (token: string) =>
-      fetch(`${API_BASE_URL}/bounty/assignments`, {
-        headers: { Authorization: `Bearer ${token}` }
-      }).then(r => r.json()),
-
-    commitReview: (token: string, id: string, commitHash: string) =>
-      fetch(`${API_BASE_URL}/bounty/${id}/commit`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({ commitHash })
-      }).then(r => r.json()),
-
-    revealReview: (token: string, id: string, data: any) =>
-      fetch(`${API_BASE_URL}/bounty/${id}/reveal`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify(data)
-      }).then(r => r.json()),
-
-    getLeaderboard: (params?: any) =>
-      fetch(`${API_BASE_URL}/bounty/leaderboard${params ? '?' + new URLSearchParams(params) : ''}`)
-        .then(r => r.json())
+async function request<T>(path: string, options?: RequestInit): Promise<T> {
+  const res = await fetch(`${API_URL}${path}`, {
+    headers: { 'Content-Type': 'application/json' },
+    ...options,
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText }))
+    throw new Error(err.error || 'Request failed')
   }
-};
+  return res.json()
+}
 
-// WebSocket connection
-export const connectWebSocket = () => {
-  const ws = new WebSocket(WS_URL);
+// Public endpoints (no auth)
+export const publicAPI = {
+  getTenders: (params?: string) => request(`/public/tenders${params ? `?${params}` : ''}`),
+  getTenderFeed: (params?: string) => request(`/public/tenders/feed${params ? `?${params}` : ''}`),
+  getFundDashboard: () => request('/public/funds/dashboard'),
+  getFundMap: () => request('/public/funds/map'),
+  getContractors: (params?: string) => request(`/public/contractors${params ? `?${params}` : ''}`),
+  getContractor: (id: string) => request(`/public/contractors/${id}`),
+}
 
-  ws.onopen = () => {
-    console.log('WebSocket connected');
-  };
+// Bounty endpoints
+export const bountyAPI = {
+  getLeaderboard: (limit = 10) => request(`/bounty/leaderboard?limit=${limit}`),
+  getAssignments: () => request('/bounty/assignments'),
+  register: (stakeAmount: number) => request('/bounty/register', { method: 'POST', body: JSON.stringify({ stakeAmount }) }),
+  commit: (id: string, commitHash: string) => request(`/bounty/${id}/commit`, { method: 'POST', body: JSON.stringify({ commitHash }) }),
+  reveal: (id: string, rating: number, salt: string) => request(`/bounty/${id}/reveal`, { method: 'POST', body: JSON.stringify({ rating, salt }) }),
+}
 
-  ws.onmessage = (event) => {
-    const data = JSON.parse(event.data);
-    console.log('WebSocket message:', data);
+// Gov endpoints
+export const govAPI = {
+  getDashboard: () => request('/gov/dashboard'),
+  getAnomalies: (params?: string) => request(`/gov/anomalies${params ? `?${params}` : ''}`),
+  getPendingMilestones: () => request('/gov/milestones/pending'),
+  approveMilestone: (id: string) => request(`/gov/milestones/${id}/approve`, { method: 'POST' }),
+}
 
-    // Handle different event types
-    switch (data.type) {
-      case 'tender_created':
-        // Dispatch tender created event
-        window.dispatchEvent(new CustomEvent('tender_created', { detail: data.data }));
-        break;
-      case 'bidding_closed':
-        window.dispatchEvent(new CustomEvent('bidding_closed', { detail: data.data }));
-        break;
-      case 'winner_allotted':
-        window.dispatchEvent(new CustomEvent('winner_allotted', { detail: data.data }));
-        break;
-      case 'milestone_submitted':
-        window.dispatchEvent(new CustomEvent('milestone_submitted', { detail: data.data }));
-        break;
-      case 'milestone_approved':
-        window.dispatchEvent(new CustomEvent('milestone_approved', { detail: data.data }));
-        break;
-      case 'anomaly_flagged':
-        window.dispatchEvent(new CustomEvent('anomaly_flagged', { detail: data.data }));
-        break;
-      case 'oracle_signed':
-        window.dispatchEvent(new CustomEvent('oracle_signed', { detail: data.data }));
-        break;
-      default:
-        console.log('Unknown WebSocket event type:', data.type);
+// Tender endpoints
+export const tenderAPI = {
+  create: (data: Record<string, unknown>) => request('/tenders', { method: 'POST', body: JSON.stringify(data) }),
+  getAll: (params?: string) => request(`/tenders${params ? `?${params}` : ''}`),
+  getOne: (id: string) => request(`/tenders/${id}`),
+  closeBids: (id: string) => request(`/tenders/${id}/close-bids`, { method: 'POST' }),
+  allot: (id: string, winnerId: string) => request(`/tenders/${id}/allot`, { method: 'POST', body: JSON.stringify({ winnerId }) }),
+}
+
+// Auditor endpoints
+export const auditorAPI = {
+  getReports: (params?: string) => request(`/auditor/reports${params ? `?${params}` : ''}`),
+  getReport: (id: string) => request(`/auditor/reports/${id}`),
+  getAnomalies: (params?: string) => request(`/auditor/anomalies${params ? `?${params}` : ''}`),
+  flag: (data: Record<string, unknown>) => request('/auditor/flag', { method: 'POST', body: JSON.stringify(data) }),
+  getAIReport: (id: string) => request(`/auditor/ai-report/${id}`),
+  reviewAnomaly: (id: string, approved: boolean, comments?: string) =>
+    request(`/auditor/anomaly/${id}/review`, { method: 'POST', body: JSON.stringify({ approved, comments }) }),
+  getStats: () => request('/auditor/statistics'),
+  getBids: (params?: string) => request(`/auditor/bids${params ? `?${params}` : ''}`),
+  oracleSign: (milestoneId: string) => request('/auditor/oracle/sign', { method: 'POST', body: JSON.stringify({ milestoneId }) }),
+}
+
+// Contractor endpoints
+export const contractorAPI = {
+  getReputation: () => request('/contractor/reputation'),
+  submitKYC: (data: Record<string, unknown>) => request('/contractor/kyc', { method: 'POST', body: JSON.stringify(data) }),
+  getBids: (params?: string) => request(`/contractor/bids${params ? `?${params}` : ''}`),
+  getMilestones: () => request('/contractor/milestones'),
+  submitMilestone: (id: string, ipfsHash: string, gpsCoordinates: string) =>
+    request(`/contractor/milestones/${id}/submit`, { method: 'POST', body: JSON.stringify({ ipfsHash, gpsCoordinates }) }),
+}
+
+// WebSocket
+export function connectWebSocket(onMessage?: (data: unknown) => void) {
+  const wsUrl = import.meta.env.VITE_WS_URL || 'ws://localhost:3001'
+  try {
+    const ws = new WebSocket(wsUrl)
+    ws.onmessage = (e) => {
+      try {
+        const data = JSON.parse(e.data)
+        onMessage?.(data)
+      } catch { /* ignore parse errors */ }
     }
-  };
-
-  ws.onerror = (error) => {
-    console.error('WebSocket error:', error);
-  };
-
-  ws.onclose = () => {
-    console.log('WebSocket disconnected');
-    // Attempt to reconnect after 5 seconds
-    setTimeout(connectWebSocket, 5000);
-  };
-
-  return ws;
-};
-
-export default api;
+    ws.onerror = () => { /* silent reconnect logic can go here */ }
+    return ws
+  } catch {
+    return null
+  }
+}
