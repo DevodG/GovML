@@ -1,7 +1,9 @@
 import { Outlet, useNavigate, useLocation } from 'react-router-dom'
 import { useAccount, useDisconnect } from 'wagmi'
+import { useEffect } from 'react'
 import { useDemoStore, type Role } from '../store/demoStore'
 import { truncateAddress } from '../lib/format'
+import { walletLogin } from '../lib/api'
 import {
   ShieldCheck, Wallet, LogOut, LayoutDashboard, FileText, CheckCircle,
   AlertTriangle, Search, Map, Award, List, FileKey, Home, Building2,
@@ -19,14 +21,15 @@ const roleConfig: Record<Role, { label: string; color: string; icon: typeof Buil
 const navItems: Record<Role, { path: string; label: string; icon: typeof LayoutDashboard }[]> = {
   gov: [
     { path: '/gov', label: 'Dashboard', icon: LayoutDashboard },
-    { path: '/gov/tenders/create', label: 'Create Tender', icon: FileText },
+    { path: '/gov/create', label: 'Create Tender', icon: FileText },
+    { path: '/gov/tenders', label: 'Tenders', icon: FileText },
     { path: '/gov/milestones', label: 'Milestones', icon: CheckCircle },
     { path: '/gov/anomalies', label: 'Anomalies', icon: AlertTriangle },
   ],
   contractor: [
     { path: '/contractor', label: 'Browse Tenders', icon: Search },
     { path: '/contractor/kyc', label: 'KYC & ZKP', icon: FileKey },
-    { path: '/contractor/my-bids', label: 'My Bids', icon: FileText },
+    { path: '/contractor/bids', label: 'My Bids', icon: FileText },
     { path: '/contractor/milestones', label: 'Milestones', icon: CheckCircle },
     { path: '/contractor/reputation', label: 'Reputation', icon: Award },
   ],
@@ -45,6 +48,14 @@ const navItems: Record<Role, { path: string; label: string; icon: typeof LayoutD
   ],
 }
 
+// Maps portal role string to backend role expected by API
+const portalToApiRole: Record<Role, string> = {
+  gov: 'government',
+  contractor: 'contractor',
+  public: 'public',
+  auditor: 'auditor',
+}
+
 export default function PortalLayout({ role }: { role: Role }) {
   const navigate = useNavigate()
   const location = useLocation()
@@ -56,6 +67,17 @@ export default function PortalLayout({ role }: { role: Role }) {
   const activeRole = isDemoMode ? (demoRole || role) : role
   const rc = roleConfig[activeRole]
   const Icon = rc.icon
+
+  // Auto wallet-login: silently get a JWT for the connected wallet so API calls work
+  useEffect(() => {
+    const apiRole = portalToApiRole[activeRole]
+    if (isConnected && address) {
+      walletLogin(address, apiRole)
+    } else {
+      // Demo fallback: use a deterministic demo wallet address
+      walletLogin('0xDemoGovChain0000000000000000000000000001', apiRole)
+    }
+  }, [address, isConnected, activeRole])
 
   const handleLogout = () => {
     if (isDemoMode) clearDemo()

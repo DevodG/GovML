@@ -1,8 +1,7 @@
 const express = require('express');
 const { body, validationResult } = require('express-validator');
-const Tender = require('../models/Tender');
+const localDB = require('../db/localDB');
 const { auth, authorize } = require('../middleware/auth');
-const { getContract, sendTransaction } = require('../middleware/blockchain');
 
 const router = express.Router();
 
@@ -23,32 +22,40 @@ router.post('/', auth, authorize('government'), [
 
     const { title, category, budget, deadline, ipfsDocHash, milestones } = req.body;
 
-    // Validate milestone percentages
-    const totalPercentage = milestones.reduce((sum, m) => sum + m.percentage, 0);
-    if (totalPercentage !== 100) {
-      return res.status(400).json({ error: 'Milestone percentages must sum to 100' });
+    // Validate milestone percentages (allow 99-101% for rounding tolerance)
+    const totalPercentage = milestones.reduce((sum, m) => sum + parseFloat(m.percentage), 0);
+    if (totalPercentage < 99 || totalPercentage > 101) {
+      return res.status(400).json({ error: `Milestone percentages must sum to 100% (currently ${totalPercentage.toFixed(1)}%)` });
     }
 
-    // Create tender in database
+    // Create tender in local database
     const tenderId = `T-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     
-    const tender = new Tender({
+    const tender = {
       tenderId,
       title,
       category,
-      budget,
-      deadline: new Date(deadline),
+      budget: parseFloat(budget),
+      deadline: new Date(deadline).toISOString(),
       ipfsDocHash,
       status: 'open',
-      createdBy: req.user._id,
-      milestones: milestones.map(m => ({
-        ...m,
+      createdBy: req.user.id,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      milestones: milestones.map((m, index) => ({
+        id: `M-${Date.now()}-${index}`,
+        name: m.name,
+        percentage: parseFloat(m.percentage),
+        daysToComplete: parseInt(m.daysToComplete),
         completed: false,
         completedAt: null
-      }))
-    });
+      })),
+      bids: [],
+      winner: null,
+      biddingClosedAt: null
+    };
 
-    await tender.save();
+    const savedTender = localDB.insert('tenders', tender);
 
     // TODO: Call smart contract to create tender on-chain
     // const contract = getContract(process.env.CONTRACT_ADDRESS_TENDER_REGISTRY, tenderRegistryABI);
@@ -58,22 +65,22 @@ router.post('/', auth, authorize('government'), [
     if (global.broadcast) {
       global.broadcast({
         type: 'tender_created',
-        data: tender
+        data: savedTender
       });
     }
 
     res.status(201).json({
       message: 'Tender created successfully',
       tender: {
-        id: tender._id,
-        tenderId: tender.tenderId,
-        title: tender.title,
-        category: tender.category,
-        budget: tender.budget,
-        deadline: tender.deadline,
-        ipfsDocHash: tender.ipfsDocHash,
-        status: tender.status,
-        milestones: tender.milestones
+        id: savedTender._id,
+        tenderId: savedTender.tenderId,
+        title: savedTender.title,
+        category: savedTender.category,
+        budget: savedTender.budget,
+        deadline: savedTender.deadline,
+        ipfsDocHash: savedTender.ipfsDocHash,
+        status: savedTender.status,
+        milestones: savedTender.milestones
       }
     });
   } catch (error) {
@@ -91,23 +98,27 @@ router.get('/', auth, async (req, res) => {
     if (category) filter.category = category;
     if (status) filter.status = status;
 
-    const tenders = await Tender.find(filter)
-      .populate('createdBy', 'name organization')
-      .populate('winner', 'name organization')
-      .sort({ createdAt: -1 })
-      .skip((page - 1) * limit)
-      .limit(parseInt(limit));
+    const result = localDB.paginate('tenders', filter, {
+      page: parseInt(page),
+      limit: parseInt(limit),
+      sort: { createdAt: -1 }
+    });
 
-    const total = await Tender.countDocuments(filter);
+    // Populate user data
+    const tendersWithUsers = result.data.map(tender => {
+      const creator = localDB.findById('users', tender.createdBy);
+      const winner = tender.winner ? localDB.findById('users', tender.winner) : null;
+      
+      return {
+        ...tender,
+        createdBy: creator ? { id: creator._id, name: creator.name, organization: creator.organization } : null,
+        winner: winner ? { id: winner._id, name: winner.name, organization: winner.organization } : null
+      };
+    });
 
     res.json({
-      tenders,
-      pagination: {
-        page: parseInt(page),
-        limit: parseInt(limit),
-        total,
-        pages: Math.ceil(total / limit)
-      }
+      tenders: tendersWithUsers,
+      pagination: result.pagination
     });
   } catch (error) {
     console.error('Get tenders error:', error);
@@ -118,9 +129,7 @@ router.get('/', auth, async (req, res) => {
 // Get single tender
 router.get('/:id', auth, async (req, res) => {
   try {
-    const tender = await Tender.findById(req.params.id)
-      .populate('createdBy', 'name organization')
-      .populate('winner', 'name organization');
+    const tender = localDB.findById('tenders', req.params.id);
 
     if (!tender) {
       return res.status(404).json({ error: 'Tender not found' });
@@ -136,7 +145,7 @@ router.get('/:id', auth, async (req, res) => {
 // Close bidding
 router.post('/:id/close-bids', auth, authorize('government'), async (req, res) => {
   try {
-    const tender = await Tender.findById(req.params.id);
+    const tender = localDB.findById('tenders', req.params.id);
     
     if (!tender) {
       return res.status(404).json({ error: 'Tender not found' });
@@ -146,13 +155,15 @@ router.post('/:id/close-bids', auth, authorize('government'), async (req, res) =
       return res.status(400).json({ error: 'Tender is not open for bidding' });
     }
 
-    if (tender.createdBy.toString() !== req.user._id.toString()) {
+    if (tender.createdBy !== req.user.id) {
       return res.status(403).json({ error: 'Not authorized to close this tender' });
     }
 
-    tender.status = 'bidding_closed';
-    tender.biddingClosedAt = new Date();
-    await tender.save();
+    const updatedTender = localDB.update('tenders', req.params.id, {
+      status: 'bidding_closed',
+      biddingClosedAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    });
 
     // TODO: Call smart contract to close bidding on-chain
 
@@ -160,11 +171,11 @@ router.post('/:id/close-bids', auth, authorize('government'), async (req, res) =
     if (global.broadcast) {
       global.broadcast({
         type: 'bidding_closed',
-        data: tender
+        data: updatedTender
       });
     }
 
-    res.json({ message: 'Bidding closed successfully', tender });
+    res.json({ message: 'Bidding closed successfully', tender: updatedTender });
   } catch (error) {
     console.error('Close bidding error:', error);
     res.status(500).json({ error: 'Failed to close bidding' });
@@ -181,7 +192,7 @@ router.post('/:id/allot', auth, authorize('government'), [
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const tender = await Tender.findById(req.params.id);
+    const tender = localDB.findById('tenders', req.params.id);
     
     if (!tender) {
       return res.status(404).json({ error: 'Tender not found' });
@@ -191,14 +202,16 @@ router.post('/:id/allot', auth, authorize('government'), [
       return res.status(400).json({ error: 'Bidding must be closed first' });
     }
 
-    if (tender.createdBy.toString() !== req.user._id.toString()) {
+    if (tender.createdBy !== req.user.id) {
       return res.status(403).json({ error: 'Not authorized to allot this tender' });
     }
 
     const { winnerId } = req.body;
-    tender.status = 'allotted';
-    tender.winner = winnerId;
-    await tender.save();
+    const updatedTender = localDB.update('tenders', req.params.id, {
+      status: 'allotted',
+      winner: winnerId,
+      updatedAt: new Date().toISOString()
+    });
 
     // TODO: Call smart contract to allot winner on-chain
 
@@ -206,11 +219,11 @@ router.post('/:id/allot', auth, authorize('government'), [
     if (global.broadcast) {
       global.broadcast({
         type: 'winner_allotted',
-        data: tender
+        data: updatedTender
       });
     }
 
-    res.json({ message: 'Winner allotted successfully', tender });
+    res.json({ message: 'Winner allotted successfully', tender: updatedTender });
   } catch (error) {
     console.error('Allot winner error:', error);
     res.status(500).json({ error: 'Failed to allot winner' });

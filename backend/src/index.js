@@ -3,9 +3,9 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
-const mongoose = require('mongoose');
 const WebSocket = require('ws');
 const http = require('http');
+const { seedDatabase } = require('./db/seedData');
 
 // Import routes
 const authRoutes = require('./routes/auth');
@@ -28,7 +28,14 @@ const server = http.createServer(app);
 // Security middleware
 app.use(helmet());
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+  origin: (origin, callback) => {
+    // Allow any localhost origin (any port) and no-origin requests (curl, mobile)
+    if (!origin || origin.startsWith('http://localhost') || origin.startsWith('http://127.0.0.1')) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true
 }));
 
@@ -44,18 +51,30 @@ app.use('/api/', limiter);
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
+// Request logging middleware
+app.use((req, res, next) => {
+  console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
+  next();
+});
+
 // Blockchain middleware
 app.use(blockchainMiddleware);
 
 // Health check
 app.get('/health', (req, res) => {
+  const localDB = require('./db/localDB');
   const health = {
     status: 'healthy',
     timestamp: new Date().toISOString(),
     services: {
-      database: mongoose.connection.readyState === 1 ? 'up' : 'down',
+      database: 'local-json',
       blockchain: req.blockchain ? 'up' : 'down',
       mlService: process.env.ML_SERVICE_URL ? 'configured' : 'not configured'
+    },
+    stats: {
+      users: localDB.count('users'),
+      tenders: localDB.count('tenders'),
+      bids: localDB.count('bids')
     }
   };
   res.json(health);
@@ -100,12 +119,12 @@ global.broadcast = (data) => {
 };
 
 // Database connection
-mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/govchain', {
-  useNewUrlParser: true,
-  useUnifiedTopology: true
-})
-.then(() => console.log('Connected to MongoDB'))
-.catch(err => console.error('MongoDB connection error:', err));
+console.log('Using local JSON database');
+seedDatabase().then(() => {
+  console.log('Local database ready');
+}).catch(err => {
+  console.error('Database seed error:', err);
+});
 
 // Start server
 const PORT = process.env.PORT || 3000;

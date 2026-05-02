@@ -63,15 +63,10 @@ export default function Home() {
   const { isDemoMode, enableDemo, setDemoRole } = useDemoStore()
 
   const handlePortalClick = (portal: typeof portals[0]) => {
-    if (isConnected) {
-      // In production: check on-chain roles here
-      navigate(portal.path)
-    } else {
-      // Demo mode: set role and navigate
-      enableDemo()
-      setDemoRole(portal.role)
-      navigate(portal.path)
-    }
+    // Always enable demo mode and set role when clicking a portal
+    enableDemo()
+    setDemoRole(portal.role)
+    navigate(portal.path)
   }
 
   const handleWalletConnect = () => {
@@ -175,7 +170,7 @@ export default function Home() {
           <div style={{ textAlign: 'center', marginBottom: 56 }}>
             <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', color: 'var(--gov)', textTransform: 'uppercase' as const }}>Choose Your Portal</span>
             <h2 style={{ fontSize: 30, fontWeight: 700, letterSpacing: '-0.02em', marginTop: 8 }}>
-              {isConnected ? 'Select your role to enter' : isDemoMode ? 'Pick a portal to demo' : 'Connect wallet or enter demo mode'}
+              Pick a portal to demo
             </h2>
             <p style={{ color: 'var(--text-secondary)', marginTop: 10, fontSize: 14 }}>Each stakeholder has a dedicated dashboard — same blockchain, different lens.</p>
           </div>

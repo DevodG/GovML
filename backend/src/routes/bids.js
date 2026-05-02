@@ -1,11 +1,7 @@
 const express = require('express');
 const { body, validationResult } = require('express-validator');
-const Bid = require('../models/Bid');
-const Tender = require('../models/Tender');
-const User = require('../models/User');
+const localDB = require('../db/localDB');
 const { auth, authorize } = require('../middleware/auth');
-const { getContract, sendTransaction, callContract } = require('../middleware/blockchain');
-const axios = require('axios');
 
 const router = express.Router();
 
@@ -13,208 +9,75 @@ const router = express.Router();
 router.post('/', auth, authorize('contractor'), [
   body('tenderId').notEmpty().withMessage('Tender ID required'),
   body('amount').isNumeric().withMessage('Amount must be a number'),
-  body('amount').isFloat({ gt: 0 }).withMessage('Amount must be greater than 0')
+  body('stakeAmount').isNumeric().withMessage('Stake amount must be a number'),
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
-    }
+    if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
 
-    const { tenderId, amount, proposal } = req.body;
+    const { tenderId, amount, stakeAmount, commitHash, ipfsProofHash, zkpProof } = req.body;
 
-    // Check if tender exists and is open
-    const tender = await Tender.findOne({ tenderId });
-    if (!tender) {
-      return res.status(404).json({ error: 'Tender not found' });
-    }
+    const tender = localDB.findById('tenders', tenderId);
+    if (!tender) return res.status(404).json({ error: 'Tender not found' });
+    if (tender.status !== 'open') return res.status(400).json({ error: 'Tender is not open for bidding' });
 
-    if (tender.status !== 'open') {
-      return res.status(400).json({ error: 'Tender is not open for bidding' });
-    }
+    // Check for duplicate bid
+    const existing = localDB.findOne('bids', { tenderId, contractorId: req.user._id });
+    if (existing) return res.status(400).json({ error: 'You have already submitted a bid for this tender' });
 
-    // Check if already bid
-    const existingBid = await Bid.findOne({
-      tenderId,
-      contractorId: req.user._id
-    });
-
-    if (existingBid) {
-      return res.status(400).json({ error: 'Already submitted bid for this tender' });
-    }
-
-    // Create bid in database
-    const bid = new Bid({
+    const bid = localDB.insert('bids', {
       tenderId,
       contractorId: req.user._id,
-      amount,
-      proposal: proposal || '',
+      amount: parseFloat(amount),
+      stakeAmount: parseFloat(stakeAmount),
+      commitHash,
+      ipfsProofHash,
+      zkpVerified: !!zkpProof,
       status: 'pending',
-      submittedAt: new Date()
+      mlScore: null,
     });
 
-    await bid.save();
-
-    // TODO: Call smart contract to stake MATIC
-    // const contract = getContract(process.env.CONTRACT_ADDRESS_BID_ESCROW, bidEscrowABI);
-    // const tx = await sendTransaction(contract, 'submitBid', tenderId, amount);
-
-    // Broadcast to WebSocket clients
     if (global.broadcast) {
-      global.broadcast({
-        type: 'bid_submitted',
-        data: bid
-      });
+      global.broadcast({ type: 'bid_submitted', data: bid });
     }
 
-    res.status(201).json({
-      message: 'Bid submitted successfully',
-      bid: {
-        id: bid._id,
-        tenderId: bid.tenderId,
-        amount: bid.amount,
-        status: bid.status,
-        submittedAt: bid.submittedAt
-      }
-    });
+    res.status(201).json({ message: 'Bid submitted successfully', bid });
   } catch (error) {
     console.error('Submit bid error:', error);
     res.status(500).json({ error: 'Failed to submit bid' });
   }
 });
 
-// Get my bids
-router.get('/my', auth, authorize('contractor'), async (req, res) => {
+// Get bids for a tender
+router.get('/tender/:tenderId', auth, async (req, res) => {
   try {
-    const { status, page = 1, limit = 20 } = req.query;
-    
-    const filter = { contractorId: req.user._id };
-    if (status) filter.status = status;
-
-    const bids = await Bid.find(filter)
-      .populate('tenderId', 'title category budget deadline')
-      .sort({ submittedAt: -1 })
-      .skip((page - 1) * limit)
-      .limit(parseInt(limit));
-
-    const total = await Bid.countDocuments(filter);
-
+    const bids = localDB.find('bids', { tenderId: req.params.tenderId });
+    const users = localDB.find('users');
     res.json({
-      bids,
-      pagination: {
-        page: parseInt(page),
-        limit: parseInt(limit),
-        total,
-        pages: Math.ceil(total / limit)
-      }
+      bids: bids.map(b => {
+        const contractor = users.find(u => u._id === b.contractorId);
+        return {
+          ...b,
+          contractor: contractor ? { name: contractor.name, organization: contractor.organization, walletAddress: contractor.walletAddress } : null,
+        };
+      }),
     });
   } catch (error) {
-    console.error('Get my bids error:', error);
     res.status(500).json({ error: 'Failed to get bids' });
   }
 });
 
-// Get bid score
-router.get('/:id/score', auth, authorize('contractor'), async (req, res) => {
-  try {
-    const bid = await Bid.findById(req.params.id)
-      .populate('tenderId')
-      .populate('contractorId');
-
-    if (!bid) {
-      return res.status(404).json({ error: 'Bid not found' });
-    }
-
-    if (bid.contractorId._id.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ error: 'Not authorized to view this bid' });
-    }
-
-    // Call ML service for scoring
-    let mlScore = null;
-    try {
-      const mlResponse = await axios.post(`${process.env.ML_SERVICE_URL}/api/v1/scoring/score`, {
-        tender_id: bid.tenderId.tenderId,
-        contractor_id: req.user._id,
-        bid_amount: bid.amount,
-        rating: req.user.reputationScore / 100,
-        completion_rate: req.user.completedProjects > 0 ? 0.9 : 0.7,
-        newcomer_boost: req.user.completedProjects === 0 ? 0.05 : 0.0
-      });
-
-      mlScore = mlResponse.data;
-    } catch (mlError) {
-      console.error('ML service error:', mlError);
-      // Fallback to simple scoring
-      mlScore = {
-        score: 0.5,
-        score_percentage: 50,
-        breakdown: {
-          normalized_bid: 0.5,
-          rating: req.user.reputationScore / 100,
-          completion_rate: 0.8,
-          newcomer_boost: 0.0
-        }
-      };
-    }
-
-    // Calculate rank (placeholder)
-    const rank = "Pending";
-
-    res.json({
-      bid_id: bid._id,
-      final_score: mlScore.score,
-      breakdown: mlScore.breakdown,
-      weights: mlScore.weights || {
-        bid_amount: 0.40,
-        rating: 0.45,
-        completion_rate: 0.10,
-        newcomer_boost: 0.05
-      },
-      fraud_flag: false,
-      rank: rank,
-      zkp_proof_valid: true,
-      ml_service_response: mlScore
-    });
-  } catch (error) {
-    console.error('Get bid score error:', error);
-    res.status(500).json({ error: 'Failed to get bid score' });
-  }
-});
-
 // Withdraw bid
-router.post('/:id/withdraw', auth, authorize('contractor'), async (req, res) => {
+router.delete('/:id', auth, authorize('contractor'), async (req, res) => {
   try {
-    const bid = await Bid.findById(req.params.id);
-    
-    if (!bid) {
-      return res.status(404).json({ error: 'Bid not found' });
-    }
+    const bid = localDB.findById('bids', req.params.id);
+    if (!bid) return res.status(404).json({ error: 'Bid not found' });
+    if (bid.contractorId !== req.user._id) return res.status(403).json({ error: 'Not authorized' });
+    if (bid.status !== 'pending') return res.status(400).json({ error: 'Cannot withdraw a bid that is not pending' });
 
-    if (bid.contractorId.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ error: 'Not authorized to withdraw this bid' });
-    }
-
-    if (bid.status !== 'pending') {
-      return res.status(400).json({ error: 'Can only withdraw pending bids' });
-    }
-
-    // Check if tender is still open
-    const tender = await Tender.findOne({ tenderId: bid.tenderId });
-    if (!tender || tender.status !== 'open') {
-      return res.status(400).json({ error: 'Tender is no longer open' });
-    }
-
-    bid.status = 'withdrawn';
-    bid.withdrawnAt = new Date();
-    await bid.save();
-
-    // TODO: Call smart contract to refund stake
-    // const contract = getContract(process.env.CONTRACT_ADDRESS_BID_ESCROW, bidEscrowABI);
-    // const tx = await sendTransaction(contract, 'withdrawBid', bid._id);
-
-    res.json({ message: 'Bid withdrawn successfully', bid });
+    localDB.updateById('bids', req.params.id, { status: 'withdrawn' });
+    res.json({ message: 'Bid withdrawn successfully' });
   } catch (error) {
-    console.error('Withdraw bid error:', error);
     res.status(500).json({ error: 'Failed to withdraw bid' });
   }
 });

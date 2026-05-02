@@ -1,5 +1,5 @@
 const jwt = require('jsonwebtoken');
-const User = require('../models/User');
+const localDB = require('../db/localDB');
 
 const auth = async (req, res, next) => {
   try {
@@ -10,13 +10,15 @@ const auth = async (req, res, next) => {
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'govchain-secret-key');
-    const user = await User.findById(decoded.id).select('-password');
+    const user = localDB.findById('users', decoded.id);
 
     if (!user) {
       return res.status(401).json({ error: 'User not found' });
     }
 
-    req.user = user;
+    // Remove password from user object
+    const { password, ...userWithoutPassword } = user;
+    req.user = userWithoutPassword;
     next();
   } catch (error) {
     res.status(401).json({ error: 'Invalid token' });

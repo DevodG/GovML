@@ -1,5 +1,5 @@
 const express = require('express');
-const Tender = require('../models/Tender');
+const localDB = require('../db/localDB');
 
 const router = express.Router();
 
@@ -11,22 +11,23 @@ router.get('/tenders', async (req, res) => {
     const filter = { status: 'open' };
     if (category) filter.category = category;
 
-    const tenders = await Tender.find(filter)
-      .select('title category budget deadline ipfsDocHash status')
-      .sort({ createdAt: -1 })
-      .skip((page - 1) * limit)
-      .limit(parseInt(limit));
-
-    const total = await Tender.countDocuments(filter);
+    const result = localDB.paginate('tenders', filter, {
+      page: parseInt(page),
+      limit: parseInt(limit),
+      sort: { createdAt: -1 }
+    });
 
     res.json({
-      tenders,
-      pagination: {
-        page: parseInt(page),
-        limit: parseInt(limit),
-        total,
-        pages: Math.ceil(total / limit)
-      }
+      tenders: result.data.map(t => ({
+        _id: t._id,
+        title: t.title,
+        category: t.category,
+        budget: t.budget,
+        deadline: t.deadline,
+        ipfsDocHash: t.ipfsDocHash,
+        status: t.status
+      })),
+      pagination: result.pagination
     });
   } catch (error) {
     console.error('Get public tenders error:', error);
@@ -37,25 +38,25 @@ router.get('/tenders', async (req, res) => {
 // Public fund dashboard
 router.get('/funds/dashboard', async (req, res) => {
   try {
-    // Get aggregated statistics
-    const stats = await Tender.aggregate([
-      {
-        $group: {
-          _id: '$category',
-          totalBudget: { $sum: '$budget' },
-          count: { $sum: 1 }
-        }
+    const tenders = localDB.find('tenders');
+    
+    // Group by category
+    const categoryStats = {};
+    let totalBudget = 0;
+    
+    tenders.forEach(t => {
+      if (!categoryStats[t.category]) {
+        categoryStats[t.category] = { _id: t.category, totalBudget: 0, count: 0 };
       }
-    ]);
-
-    const totalBudget = await Tender.aggregate([
-      { $group: { _id: null, total: { $sum: '$budget' } } }
-    ]);
+      categoryStats[t.category].totalBudget += t.budget;
+      categoryStats[t.category].count += 1;
+      totalBudget += t.budget;
+    });
 
     res.json({
-      categoryStats: stats,
-      totalBudget: totalBudget[0]?.total || 0,
-      totalTenders: await Tender.countDocuments()
+      categoryStats: Object.values(categoryStats),
+      totalBudget,
+      totalTenders: tenders.length
     });
   } catch (error) {
     console.error('Get fund dashboard error:', error);
@@ -66,15 +67,22 @@ router.get('/funds/dashboard', async (req, res) => {
 // Public contractor profiles
 router.get('/contractors/:id', async (req, res) => {
   try {
-    const User = require('../models/User');
-    const contractor = await User.findById(req.params.id)
-      .select('name organization reputationScore completedProjects kycVerified');
+    const contractor = localDB.findById('users', req.params.id);
 
-    if (!contractor) {
+    if (!contractor || contractor.role !== 'contractor') {
       return res.status(404).json({ error: 'Contractor not found' });
     }
 
-    res.json({ contractor });
+    res.json({
+      contractor: {
+        _id: contractor._id,
+        name: contractor.name,
+        organization: contractor.organization,
+        reputationScore: contractor.reputationScore,
+        completedProjects: contractor.completedProjects,
+        kycVerified: contractor.kycVerified
+      }
+    });
   } catch (error) {
     console.error('Get contractor error:', error);
     res.status(500).json({ error: 'Failed to get contractor' });
@@ -88,40 +96,63 @@ router.get('/contractors', async (req, res) => {
 
     const filter = { role: 'contractor' };
     if (q) {
-      filter.$or = [
-        { name: { $regex: q, $options: 'i' } },
-        { organization: { $regex: q, $options: 'i' } },
-        { gstNumber: { $regex: q, $options: 'i' } }
-      ];
-    }
-
-    const contractors = await User.find(filter)
-      .select('name organization gstNumber walletAddress reputationScore completedProjects kycVerified aadhaarVerified')
-      .sort({ reputationScore: -1 })
-      .skip((page - 1) * limit)
-      .limit(parseInt(limit));
-
-    const total = await User.countDocuments(filter);
-
-    res.json({
-      contractors: contractors.map((c, index) => ({
-        id: `C-${c._id.toString().slice(-4)}`,
-        name: c.name || c.organization,
-        gst: c.gstNumber || 'N/A',
-        rating: (c.reputationScore / 20).toFixed(1),
-        projects: c.completedProjects || 0,
-        zkp: c.kycVerified || false,
-        wallet: c.walletAddress || 'N/A',
-        completionRate: c.reputationScore > 80 ? 96.2 : c.reputationScore > 60 ? 91.4 : 78.0,
-        flagged: c.reputationScore < 30
-      })),
-      pagination: {
+      // Simple search across multiple fields
+      const allContractors = localDB.find('users', { role: 'contractor' });
+      const searchResults = allContractors.filter(c => {
+        const searchStr = q.toLowerCase();
+        return (
+          (c.name && c.name.toLowerCase().includes(searchStr)) ||
+          (c.organization && c.organization.toLowerCase().includes(searchStr)) ||
+          (c.gstNumber && c.gstNumber.toLowerCase().includes(searchStr))
+        );
+      });
+      
+      const skip = (page - 1) * limit;
+      const paginatedResults = searchResults.slice(skip, skip + parseInt(limit));
+      
+      res.json({
+        contractors: paginatedResults.map((c) => ({
+          id: c._id,
+          displayId: `C-${c._id.slice(-4)}`,
+          name: c.name || c.organization,
+          gst: c.gstNumber || 'N/A',
+          rating: (c.reputationScore / 20).toFixed(1),
+          projects: c.completedProjects || 0,
+          zkp: c.kycVerified || false,
+          wallet: c.walletAddress || 'N/A',
+          completionRate: c.reputationScore > 80 ? 96.2 : c.reputationScore > 60 ? 91.4 : 78.0,
+          flagged: c.reputationScore < 30
+        })),
+        pagination: {
+          page: parseInt(page),
+          limit: parseInt(limit),
+          total: searchResults.length,
+          pages: Math.ceil(searchResults.length / limit)
+        }
+      });
+    } else {
+      const result = localDB.paginate('users', filter, {
         page: parseInt(page),
         limit: parseInt(limit),
-        total,
-        pages: Math.ceil(total / limit)
-      }
-    });
+        sort: { reputationScore: -1 }
+      });
+
+      res.json({
+        contractors: result.data.map((c) => ({
+          id: c._id,
+          displayId: `C-${c._id.slice(-4)}`,
+          name: c.name || c.organization,
+          gst: c.gstNumber || 'N/A',
+          rating: (c.reputationScore / 20).toFixed(1),
+          projects: c.completedProjects || 0,
+          zkp: c.kycVerified || false,
+          wallet: c.walletAddress || 'N/A',
+          completionRate: c.reputationScore > 80 ? 96.2 : c.reputationScore > 60 ? 91.4 : 78.0,
+          flagged: c.reputationScore < 30
+        })),
+        pagination: result.pagination
+      });
+    }
   } catch (error) {
     console.error('Search contractors error:', error);
     res.status(500).json({ error: 'Failed to search contractors' });
@@ -131,27 +162,21 @@ router.get('/contractors', async (req, res) => {
 // Get fund map data
 router.get('/funds/map', async (req, res) => {
   try {
-    const Tender = require('../models/Tender');
+    const tenders = localDB.find('tenders');
 
     // Get state-wise fund allocation
-    const stateData = await Tender.aggregate([
-      {
-        $group: {
-          _id: '$state',
-          tenders: { $sum: 1 },
-          allocated: { $sum: '$budget' },
-          utilised: { $sum: { $ifNull: ['$utilisedAmount', 0] } }
-        }
-      }
-    ]);
-
     const stateMap = {};
-    stateData.forEach(s => {
-      stateMap[s._id] = {
-        tenders: s.tenders,
-        allocated: s.allocated,
-        utilised: s.utilised
-      };
+    tenders.forEach(t => {
+      if (!stateMap[t.state]) {
+        stateMap[t.state] = {
+          tenders: 0,
+          allocated: 0,
+          utilised: 0
+        };
+      }
+      stateMap[t.state].tenders += 1;
+      stateMap[t.state].allocated += t.budget;
+      stateMap[t.state].utilised += t.utilisedAmount || 0;
     });
 
     res.json({
@@ -172,15 +197,14 @@ router.get('/tenders/feed', async (req, res) => {
     if (state) filter.state = state;
     if (category) filter.category = category;
 
-    const tenders = await Tender.find(filter)
-      .sort({ createdAt: -1 })
-      .skip((page - 1) * limit)
-      .limit(parseInt(limit));
-
-    const total = await Tender.countDocuments(filter);
+    const result = localDB.paginate('tenders', filter, {
+      page: parseInt(page),
+      limit: parseInt(limit),
+      sort: { createdAt: -1 }
+    });
 
     res.json({
-      tenders: tenders.map(t => ({
+      tenders: result.data.map(t => ({
         id: t.tenderId,
         title: t.title,
         category: t.category,
@@ -191,12 +215,7 @@ router.get('/tenders/feed', async (req, res) => {
         status: t.status,
         deadline: t.deadline
       })),
-      pagination: {
-        page: parseInt(page),
-        limit: parseInt(limit),
-        total,
-        pages: Math.ceil(total / limit)
-      }
+      pagination: result.pagination
     });
   } catch (error) {
     console.error('Get tender feed error:', error);

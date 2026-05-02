@@ -1,9 +1,7 @@
 const express = require('express');
 const { body, validationResult } = require('express-validator');
-const BountyHunter = require('../models/BountyHunter');
-const Milestone = require('../models/Milestone');
+const localDB = require('../db/localDB');
 const { auth } = require('../middleware/auth');
-const { getContract, sendTransaction } = require('../middleware/blockchain');
 
 const router = express.Router();
 
@@ -180,18 +178,22 @@ router.get('/leaderboard', async (req, res) => {
   try {
     const { limit = 10 } = req.query;
 
-    const hunters = await BountyHunter.find({ status: 'active' })
-      .populate('userId', 'name organization')
-      .sort({ reputation: -1, completedReviews: -1 })
-      .limit(parseInt(limit));
+    const hunters = localDB.find('bountyHunters')
+      .sort((a, b) => {
+        if (b.reputationScore !== a.reputationScore) {
+          return b.reputationScore - a.reputationScore;
+        }
+        return b.verificationsCount - a.verificationsCount;
+      })
+      .slice(0, parseInt(limit));
 
     res.json({
       leaderboard: hunters.map((h, index) => ({
         rank: index + 1,
-        name: h.userId.name || h.userId.organization,
-        reputation: h.reputation,
-        completedReviews: h.completedReviews,
-        earnings: h.earnings || 0
+        name: h.name,
+        reputation: h.reputationScore,
+        completedReviews: h.verificationsCount,
+        earnings: h.totalEarnings || 0
       }))
     });
   } catch (error) {

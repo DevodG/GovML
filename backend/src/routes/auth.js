@@ -2,7 +2,7 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { body, validationResult } = require('express-validator');
-const User = require('../models/User');
+const localDB = require('../db/localDB');
 const { auth } = require('../middleware/auth');
 
 const router = express.Router();
@@ -23,7 +23,7 @@ router.post('/register', [
     const { email, password, role, name, organization, gstNumber, walletAddress } = req.body;
 
     // Check if user exists
-    const existingUser = await User.findOne({ email });
+    const existingUser = localDB.findOne('users', { email });
     if (existingUser) {
       return res.status(400).json({ error: 'User already exists' });
     }
@@ -32,17 +32,20 @@ router.post('/register', [
     const hashedPassword = await bcrypt.hash(password, 10);
 
     // Create user
-    const user = new User({
+    const user = localDB.insert('users', {
       email,
       password: hashedPassword,
       role,
       name,
       organization,
       gstNumber,
-      walletAddress
+      walletAddress,
+      isActive: true,
+      reputationScore: 50,
+      completedProjects: 0,
+      kycVerified: false,
+      aadhaarVerified: false
     });
-
-    await user.save();
 
     // Generate token
     const token = jwt.sign(
@@ -82,7 +85,7 @@ router.post('/login', [
     const { email, password } = req.body;
 
     // Find user
-    const user = await User.findOne({ email });
+    const user = localDB.findOne('users', { email });
     if (!user) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
@@ -94,7 +97,7 @@ router.post('/login', [
     }
 
     // Check if user is active
-    if (!user.isActive) {
+    if (user.isActive === false) {
       return res.status(401).json({ error: 'Account is deactivated' });
     }
 
@@ -136,12 +139,11 @@ router.post('/connect-wallet', auth, [
     const { walletAddress } = req.body;
 
     // Update user wallet address
-    req.user.walletAddress = walletAddress;
-    await req.user.save();
+    localDB.updateById('users', req.user._id, { walletAddress });
 
     res.json({
       message: 'Wallet connected successfully',
-      walletAddress: req.user.walletAddress
+      walletAddress
     });
   } catch (error) {
     console.error('Wallet connection error:', error);
@@ -169,6 +171,72 @@ router.get('/me', auth, async (req, res) => {
   } catch (error) {
     console.error('Get user error:', error);
     res.status(500).json({ error: 'Failed to get user info' });
+  }
+});
+
+// Wallet Login — find or create user by wallet address + role (demo/Web3 mode)
+router.post('/wallet-login', [
+  body('walletAddress').notEmpty().withMessage('Wallet address required'),
+  body('role').isIn(['government', 'contractor', 'public', 'auditor']).withMessage('Invalid role'),
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const { walletAddress, role } = req.body;
+    const normalizedWallet = walletAddress.toLowerCase();
+
+    // Look for existing user with this wallet
+    let user = localDB.findOne('users', { walletAddress: normalizedWallet });
+
+    if (!user) {
+      // Auto-create user for this wallet + role
+      const roleNames = {
+        government: 'Government Official',
+        contractor: 'Contractor',
+        auditor: 'Auditor',
+        public: 'Citizen',
+      };
+      const hashedPassword = await bcrypt.hash('wallet-auto-' + Date.now(), 8);
+      user = localDB.insert('users', {
+        email: `${normalizedWallet.substring(2, 8)}@wallet.govchain`,
+        password: hashedPassword,
+        role,
+        name: roleNames[role] || role,
+        organization: role === 'government' ? 'Ministry of Infrastructure' : undefined,
+        walletAddress: normalizedWallet,
+        isActive: true,
+        reputationScore: 50,
+        completedProjects: 0,
+        kycVerified: false,
+        aadhaarVerified: false,
+      });
+    }
+
+    // Generate token
+    const token = jwt.sign(
+      { id: user._id, role: user.role },
+      process.env.JWT_SECRET || 'govchain-secret-key',
+      { expiresIn: '7d' }
+    );
+
+    res.json({
+      message: 'Wallet login successful',
+      token,
+      user: {
+        id: user._id,
+        email: user.email,
+        role: user.role,
+        name: user.name,
+        walletAddress: user.walletAddress,
+        reputationScore: user.reputationScore,
+      },
+    });
+  } catch (error) {
+    console.error('Wallet login error:', error);
+    res.status(500).json({ error: 'Wallet login failed' });
   }
 });
 

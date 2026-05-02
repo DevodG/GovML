@@ -1,0 +1,1499 @@
+[
+  {
+    "_id": "ddrsjfumkmonsy4mf",
+    "tenderId": "TND-2024-0001",
+    "title": "NH-48 Mumbai-Pune Expressway Widening Project",
+    "description": "Widening of 95km stretch from 4-lane to 6-lane with smart traffic management system",
+    "category": "infrastructure",
+    "state": "Maharashtra",
+    "budget": 45000000,
+    "utilisedAmount": 0,
+    "deadline": "2026-08-20T03:48:49.767Z",
+    "status": "open",
+    "ipfsDocHash": "Qmiw9lpz98qfq",
+    "governmentId": "zaq322wxumonsy4mb",
+    "createdAt": "2026-05-02T03:48:49.767Z",
+    "milestones": [
+      {
+        "name": "Site Survey & Planning",
+        "percentage": 15,
+        "daysToComplete": 30,
+        "completed": false,
+        "amount": 6750000
+      },
+      {
+        "name": "Design & Approval",
+        "percentage": 20,
+        "daysToComplete": 45,
+        "completed": false,
+        "amount": 9000000
+      },
+      {
+        "name": "Foundation & Structural Work",
+        "percentage": 35,
+        "daysToComplete": 120,
+        "completed": false,
+        "amount": 15749999
+      },
+      {
+        "name": "Finishing & Quality Check",
+        "percentage": 20,
+        "daysToComplete": 60,
+        "completed": false,
+        "amount": 9000000
+      },
+      {
+        "name": "Handover & Documentation",
+        "percentage": 10,
+        "daysToComplete": 15,
+        "completed": false,
+        "amount": 4500000
+      }
+    ],
+    "updatedAt": "2026-05-02T03:48:49.767Z"
+  },
+  {
+    "_id": "l5uhi8da8monsy4mg",
+    "tenderId": "TND-2024-0002",
+    "title": "Bangalore Outer Ring Road Phase 3 Construction",
+    "description": "Construction of 32km elevated expressway with 8 interchanges and toll plazas",
+    "category": "infrastructure",
+    "state": "Karnataka",
+    "budget": 38000000,
+    "utilisedAmount": 0,
+    "deadline": "2026-10-28T03:48:49.767Z",
+    "status": "open",
+    "ipfsDocHash": "Qmjp20bfongws",
+    "governmentId": "zaq322wxumonsy4mb",
+    "createdAt": "2026-05-02T03:48:49.768Z",
+    "milestones": [
+      {
+        "name": "Site Survey & Planning",
+        "percentage": 15,
+        "daysToComplete": 30,
+        "completed": false,
+        "amount": 5700000
+      },
+      {
+        "name": "Design & Approval",
+        "percentage": 20,
+        "daysToComplete": 45,
+        "completed": false,
+        "amount": 7600000
+      },
+      {
+        "name": "Foundation & Structural Work",
+        "percentage": 35,
+        "daysToComplete": 120,
+        "completed": false,
+        "amount": 13300000
+      },
+      {
+        "name": "Finishing & Quality Check",
+        "percentage": 20,
+        "daysToComplete": 60,
+        "completed": false,
+        "amount": 7600000
+      },
+      {
+        "name": "Handover & Documentation",
+        "percentage": 10,
+        "daysToComplete": 15,
+        "completed": false,
+        "amount": 3800000
+      }
+    ],
+    "updatedAt": "2026-05-02T03:48:49.768Z"
+  },
+  {
+    "_id": "1y2vk140omonsy4mh",
+    "tenderId": "TND-2024-0003",
+    "title": "Chennai-Trichy National Highway Upgrade",
+    "description": "Upgrade to 4-lane highway with service roads and 12 bypasses",
+    "category": "transport",
+    "state": "Tamil Nadu",
+    "budget": 28000000,
+    "utilisedAmount": 13557076,
+    "deadline": "2026-06-18T03:48:49.767Z",
+    "status": "in_progress",
+    "ipfsDocHash": "Qmbq48kp26ku4",
+    "governmentId": "zaq322wxumonsy4mb",
+    "createdAt": "2026-05-02T03:48:49.769Z",
+    "milestones": [
+      {
+        "name": "Site Survey & Planning",
+        "percentage": 15,
+        "daysToComplete": 30,
+        "completed": true,
+        "amount": 4200000
+      },
+      {
+        "name": "Design & Approval",
+        "percentage": 20,
+        "daysToComplete": 45,
+        "completed": true,
+        "amount": 5600000
+      },
+      {
+        "name": "Foundation & Structural Work",
+        "percentage": 35,
+        "daysToComplete": 120,
+        "completed": false,
+        "amount": 9800000
+      },
+      {
+        "name": "Finishing & Quality Check",
+        "percentage": 20,
+        "daysToComplete": 60,
+        "completed": false,
+        "amount": 5600000
+      },
+      {
+        "name": "Handover & Documentation",
+        "percentage": 10,
+        "daysToComplete": 15,
+        "completed": false,
+        "amount": 2800000
+      }
+    ],
+    "updatedAt": "2026-05-02T03:48:49.769Z"
+  },
+  {
+    "_id": "ag845xqcrmonsy4mi",
+    "tenderId": "TND-2024-0004",
+    "title": "Delhi-Meerut Expressway Extension",
+    "description": "14-lane expressway with dedicated freight corridor and smart lighting",
+    "category": "transport",
+    "state": "Delhi",
+    "budget": 52000000,
+    "utilisedAmount": 0,
+    "deadline": "2026-10-31T03:48:49.767Z",
+    "status": "open",
+    "ipfsDocHash": "Qmbn5k0t74z85",
+    "governmentId": "zaq322wxumonsy4mb",
+    "createdAt": "2026-05-02T03:48:49.770Z",
+    "milestones": [
+      {
+        "name": "Site Survey & Planning",
+        "percentage": 15,
+        "daysToComplete": 30,
+        "completed": false,
+        "amount": 7800000
+      },
+      {
+        "name": "Design & Approval",
+        "percentage": 20,
+        "daysToComplete": 45,
+        "completed": false,
+        "amount": 10400000
+      },
+      {
+        "name": "Foundation & Structural Work",
+        "percentage": 35,
+        "daysToComplete": 120,
+        "completed": false,
+        "amount": 18200000
+      },
+      {
+        "name": "Finishing & Quality Check",
+        "percentage": 20,
+        "daysToComplete": 60,
+        "completed": false,
+        "amount": 10400000
+      },
+      {
+        "name": "Handover & Documentation",
+        "percentage": 10,
+        "daysToComplete": 15,
+        "completed": false,
+        "amount": 5200000
+      }
+    ],
+    "updatedAt": "2026-05-02T03:48:49.770Z"
+  },
+  {
+    "_id": "fuq033vvwmonsy4mj",
+    "tenderId": "TND-2024-0005",
+    "title": "Ahmedabad-Vadodara Expressway Maintenance",
+    "description": "Annual maintenance and resurfacing of 93km expressway stretch",
+    "category": "infrastructure",
+    "state": "Gujarat",
+    "budget": 15000000,
+    "utilisedAmount": 0,
+    "deadline": "2026-06-11T03:48:49.767Z",
+    "status": "open",
+    "ipfsDocHash": "Qm7p9c4q9afsd",
+    "governmentId": "zaq322wxumonsy4mb",
+    "createdAt": "2026-05-02T03:48:49.771Z",
+    "milestones": [
+      {
+        "name": "Site Survey & Planning",
+        "percentage": 15,
+        "daysToComplete": 30,
+        "completed": false,
+        "amount": 2250000
+      },
+      {
+        "name": "Design & Approval",
+        "percentage": 20,
+        "daysToComplete": 45,
+        "completed": false,
+        "amount": 3000000
+      },
+      {
+        "name": "Foundation & Structural Work",
+        "percentage": 35,
+        "daysToComplete": 120,
+        "completed": false,
+        "amount": 5250000
+      },
+      {
+        "name": "Finishing & Quality Check",
+        "percentage": 20,
+        "daysToComplete": 60,
+        "completed": false,
+        "amount": 3000000
+      },
+      {
+        "name": "Handover & Documentation",
+        "percentage": 10,
+        "daysToComplete": 15,
+        "completed": false,
+        "amount": 1500000
+      }
+    ],
+    "updatedAt": "2026-05-02T03:48:49.771Z"
+  },
+  {
+    "_id": "pd3ha6wdhmonsy4mk",
+    "tenderId": "TND-2024-0006",
+    "title": "Signature Bridge Construction over Yamuna River",
+    "description": "Cable-stayed bridge with 154m pylon and 8-lane carriageway",
+    "category": "infrastructure",
+    "state": "Delhi",
+    "budget": 65000000,
+    "utilisedAmount": 31186739,
+    "deadline": "2026-07-24T03:48:49.767Z",
+    "status": "in_progress",
+    "ipfsDocHash": "Qm35ybab4i9yt",
+    "governmentId": "zaq322wxumonsy4mb",
+    "createdAt": "2026-05-02T03:48:49.772Z",
+    "milestones": [
+      {
+        "name": "Site Survey & Planning",
+        "percentage": 15,
+        "daysToComplete": 30,
+        "completed": true,
+        "amount": 9750000
+      },
+      {
+        "name": "Design & Approval",
+        "percentage": 20,
+        "daysToComplete": 45,
+        "completed": false,
+        "amount": 13000000
+      },
+      {
+        "name": "Foundation & Structural Work",
+        "percentage": 35,
+        "daysToComplete": 120,
+        "completed": false,
+        "amount": 22750000
+      },
+      {
+        "name": "Finishing & Quality Check",
+        "percentage": 20,
+        "daysToComplete": 60,
+        "completed": false,
+        "amount": 13000000
+      },
+      {
+        "name": "Handover & Documentation",
+        "percentage": 10,
+        "daysToComplete": 15,
+        "completed": false,
+        "amount": 6500000
+      }
+    ],
+    "updatedAt": "2026-05-02T03:48:49.772Z"
+  },
+  {
+    "_id": "219lcuy0jmonsy4ml",
+    "tenderId": "TND-2024-0007",
+    "title": "Bandra-Worli Sea Link Extension Project",
+    "description": "Extension of sea link by 5.6km with 8-lane bridge and tunnel",
+    "category": "infrastructure",
+    "state": "Maharashtra",
+    "budget": 78000000,
+    "utilisedAmount": 0,
+    "deadline": "2026-08-18T03:48:49.767Z",
+    "status": "open",
+    "ipfsDocHash": "Qm2bdtsqzhzz3",
+    "governmentId": "zaq322wxumonsy4mb",
+    "createdAt": "2026-05-02T03:48:49.773Z",
+    "milestones": [
+      {
+        "name": "Site Survey & Planning",
+        "percentage": 15,
+        "daysToComplete": 30,
+        "completed": false,
+        "amount": 11700000
+      },
+      {
+        "name": "Design & Approval",
+        "percentage": 20,
+        "daysToComplete": 45,
+        "completed": false,
+        "amount": 15600000
+      },
+      {
+        "name": "Foundation & Structural Work",
+        "percentage": 35,
+        "daysToComplete": 120,
+        "completed": false,
+        "amount": 27300000
+      },
+      {
+        "name": "Finishing & Quality Check",
+        "percentage": 20,
+        "daysToComplete": 60,
+        "completed": false,
+        "amount": 15600000
+      },
+      {
+        "name": "Handover & Documentation",
+        "percentage": 10,
+        "daysToComplete": 15,
+        "completed": false,
+        "amount": 7800000
+      }
+    ],
+    "updatedAt": "2026-05-02T03:48:49.773Z"
+  },
+  {
+    "_id": "h4t8bo57bmonsy4mm",
+    "tenderId": "TND-2024-0008",
+    "title": "Howrah Bridge Restoration and Strengthening",
+    "description": "Structural restoration of heritage cantilever bridge with modern safety systems",
+    "category": "infrastructure",
+    "state": "West Bengal",
+    "budget": 22000000,
+    "utilisedAmount": 0,
+    "deadline": "2026-09-21T03:48:49.767Z",
+    "status": "open",
+    "ipfsDocHash": "Qmi9vrsgz4wfc",
+    "governmentId": "zaq322wxumonsy4mb",
+    "createdAt": "2026-05-02T03:48:49.774Z",
+    "milestones": [
+      {
+        "name": "Site Survey & Planning",
+        "percentage": 15,
+        "daysToComplete": 30,
+        "completed": false,
+        "amount": 3300000
+      },
+      {
+        "name": "Design & Approval",
+        "percentage": 20,
+        "daysToComplete": 45,
+        "completed": false,
+        "amount": 4400000
+      },
+      {
+        "name": "Foundation & Structural Work",
+        "percentage": 35,
+        "daysToComplete": 120,
+        "completed": false,
+        "amount": 7699999
+      },
+      {
+        "name": "Finishing & Quality Check",
+        "percentage": 20,
+        "daysToComplete": 60,
+        "completed": false,
+        "amount": 4400000
+      },
+      {
+        "name": "Handover & Documentation",
+        "percentage": 10,
+        "daysToComplete": 15,
+        "completed": false,
+        "amount": 2200000
+      }
+    ],
+    "updatedAt": "2026-05-02T03:48:49.774Z"
+  },
+  {
+    "_id": "sgwfyhq3nmonsy4mo",
+    "tenderId": "TND-2024-0009",
+    "title": "Pamban Rail-Road Bridge Replacement",
+    "description": "New vertical lift bridge replacing 108-year-old structure",
+    "category": "transport",
+    "state": "Tamil Nadu",
+    "budget": 42000000,
+    "utilisedAmount": 0,
+    "deadline": "2026-07-22T03:48:49.767Z",
+    "status": "open",
+    "ipfsDocHash": "Qmlsqm48yhc5",
+    "governmentId": "zaq322wxumonsy4mb",
+    "createdAt": "2026-05-02T03:48:49.776Z",
+    "milestones": [
+      {
+        "name": "Site Survey & Planning",
+        "percentage": 15,
+        "daysToComplete": 30,
+        "completed": false,
+        "amount": 6300000
+      },
+      {
+        "name": "Design & Approval",
+        "percentage": 20,
+        "daysToComplete": 45,
+        "completed": false,
+        "amount": 8400000
+      },
+      {
+        "name": "Foundation & Structural Work",
+        "percentage": 35,
+        "daysToComplete": 120,
+        "completed": false,
+        "amount": 14699999
+      },
+      {
+        "name": "Finishing & Quality Check",
+        "percentage": 20,
+        "daysToComplete": 60,
+        "completed": false,
+        "amount": 8400000
+      },
+      {
+        "name": "Handover & Documentation",
+        "percentage": 10,
+        "daysToComplete": 15,
+        "completed": false,
+        "amount": 4200000
+      }
+    ],
+    "updatedAt": "2026-05-02T03:48:49.776Z"
+  },
+  {
+    "_id": "r5ywu8vzcmonsy4mq",
+    "tenderId": "TND-2024-0010",
+    "title": "Atal Setu Mumbai Trans Harbour Link",
+    "description": "21.8km sea bridge connecting Mumbai to Navi Mumbai with 6 lanes",
+    "category": "infrastructure",
+    "state": "Maharashtra",
+    "budget": 95000000,
+    "utilisedAmount": 0,
+    "deadline": "2026-05-26T03:48:49.767Z",
+    "status": "open",
+    "ipfsDocHash": "Qmf5ga64nl05t",
+    "governmentId": "zaq322wxumonsy4mb",
+    "createdAt": "2026-05-02T03:48:49.778Z",
+    "milestones": [
+      {
+        "name": "Site Survey & Planning",
+        "percentage": 15,
+        "daysToComplete": 30,
+        "completed": false,
+        "amount": 14250000
+      },
+      {
+        "name": "Design & Approval",
+        "percentage": 20,
+        "daysToComplete": 45,
+        "completed": false,
+        "amount": 19000000
+      },
+      {
+        "name": "Foundation & Structural Work",
+        "percentage": 35,
+        "daysToComplete": 120,
+        "completed": false,
+        "amount": 33249999
+      },
+      {
+        "name": "Finishing & Quality Check",
+        "percentage": 20,
+        "daysToComplete": 60,
+        "completed": false,
+        "amount": 19000000
+      },
+      {
+        "name": "Handover & Documentation",
+        "percentage": 10,
+        "daysToComplete": 15,
+        "completed": false,
+        "amount": 9500000
+      }
+    ],
+    "updatedAt": "2026-05-02T03:48:49.778Z"
+  },
+  {
+    "_id": "134knuh51monsy4mr",
+    "tenderId": "TND-2024-0011",
+    "title": "Bangalore Metro Purple Line Extension",
+    "description": "18.5km underground metro with 13 stations and depot",
+    "category": "transport",
+    "state": "Karnataka",
+    "budget": 58000000,
+    "utilisedAmount": 44626528,
+    "deadline": "2026-07-02T03:48:49.767Z",
+    "status": "in_progress",
+    "ipfsDocHash": "Qm0y0ikuko9jto",
+    "governmentId": "zaq322wxumonsy4mb",
+    "createdAt": "2026-05-02T03:48:49.779Z",
+    "milestones": [
+      {
+        "name": "Site Survey & Planning",
+        "percentage": 15,
+        "daysToComplete": 30,
+        "completed": true,
+        "amount": 8700000
+      },
+      {
+        "name": "Design & Approval",
+        "percentage": 20,
+        "daysToComplete": 45,
+        "completed": false,
+        "amount": 11600000
+      },
+      {
+        "name": "Foundation & Structural Work",
+        "percentage": 35,
+        "daysToComplete": 120,
+        "completed": false,
+        "amount": 20300000
+      },
+      {
+        "name": "Finishing & Quality Check",
+        "percentage": 20,
+        "daysToComplete": 60,
+        "completed": false,
+        "amount": 11600000
+      },
+      {
+        "name": "Handover & Documentation",
+        "percentage": 10,
+        "daysToComplete": 15,
+        "completed": false,
+        "amount": 5800000
+      }
+    ],
+    "updatedAt": "2026-05-02T03:48:49.779Z"
+  },
+  {
+    "_id": "0zzy16jb0monsy4mr",
+    "tenderId": "TND-2024-0012",
+    "title": "Delhi Metro Phase 4 - Aerocity to Tughlakabad",
+    "description": "28.92km corridor with 24 stations including interchange facilities",
+    "category": "transport",
+    "state": "Delhi",
+    "budget": 72000000,
+    "utilisedAmount": 0,
+    "deadline": "2026-05-24T03:48:49.767Z",
+    "status": "open",
+    "ipfsDocHash": "Qmep638ccc06d",
+    "governmentId": "zaq322wxumonsy4mb",
+    "createdAt": "2026-05-02T03:48:49.779Z",
+    "milestones": [
+      {
+        "name": "Site Survey & Planning",
+        "percentage": 15,
+        "daysToComplete": 30,
+        "completed": false,
+        "amount": 10800000
+      },
+      {
+        "name": "Design & Approval",
+        "percentage": 20,
+        "daysToComplete": 45,
+        "completed": false,
+        "amount": 14400000
+      },
+      {
+        "name": "Foundation & Structural Work",
+        "percentage": 35,
+        "daysToComplete": 120,
+        "completed": false,
+        "amount": 25200000
+      },
+      {
+        "name": "Finishing & Quality Check",
+        "percentage": 20,
+        "daysToComplete": 60,
+        "completed": false,
+        "amount": 14400000
+      },
+      {
+        "name": "Handover & Documentation",
+        "percentage": 10,
+        "daysToComplete": 15,
+        "completed": false,
+        "amount": 7200000
+      }
+    ],
+    "updatedAt": "2026-05-02T03:48:49.779Z"
+  },
+  {
+    "_id": "mer59exthmonsy4ms",
+    "tenderId": "TND-2024-0013",
+    "title": "Mumbai Metro Line 3 Underground Construction",
+    "description": "33.5km fully underground metro with 27 stations",
+    "category": "transport",
+    "state": "Maharashtra",
+    "budget": 88000000,
+    "utilisedAmount": 88000000,
+    "deadline": "2026-03-17T03:48:49.767Z",
+    "status": "completed",
+    "ipfsDocHash": "Qmzyxxkqi6nce",
+    "governmentId": "zaq322wxumonsy4mb",
+    "createdAt": "2026-05-02T03:48:49.780Z",
+    "milestones": [
+      {
+        "name": "Site Survey & Planning",
+        "percentage": 15,
+        "daysToComplete": 30,
+        "completed": true,
+        "amount": 13200000
+      },
+      {
+        "name": "Design & Approval",
+        "percentage": 20,
+        "daysToComplete": 45,
+        "completed": true,
+        "amount": 17600000
+      },
+      {
+        "name": "Foundation & Structural Work",
+        "percentage": 35,
+        "daysToComplete": 120,
+        "completed": true,
+        "amount": 30799999
+      },
+      {
+        "name": "Finishing & Quality Check",
+        "percentage": 20,
+        "daysToComplete": 60,
+        "completed": true,
+        "amount": 17600000
+      },
+      {
+        "name": "Handover & Documentation",
+        "percentage": 10,
+        "daysToComplete": 15,
+        "completed": true,
+        "amount": 8800000
+      }
+    ],
+    "updatedAt": "2026-05-02T03:48:49.780Z"
+  },
+  {
+    "_id": "kuscgyxocmonsy4ms",
+    "tenderId": "TND-2024-0014",
+    "title": "Chennai Metro Phase 2 Corridor 3",
+    "description": "45.8km elevated and underground metro with 50 stations",
+    "category": "transport",
+    "state": "Tamil Nadu",
+    "budget": 45000000,
+    "utilisedAmount": 29761542,
+    "deadline": "2026-07-17T03:48:49.767Z",
+    "status": "in_progress",
+    "ipfsDocHash": "Qm2vbhvoi8naz",
+    "governmentId": "zaq322wxumonsy4mb",
+    "createdAt": "2026-05-02T03:48:49.780Z",
+    "milestones": [
+      {
+        "name": "Site Survey & Planning",
+        "percentage": 15,
+        "daysToComplete": 30,
+        "completed": true,
+        "amount": 6750000
+      },
+      {
+        "name": "Design & Approval",
+        "percentage": 20,
+        "daysToComplete": 45,
+        "completed": true,
+        "amount": 9000000
+      },
+      {
+        "name": "Foundation & Structural Work",
+        "percentage": 35,
+        "daysToComplete": 120,
+        "completed": false,
+        "amount": 15749999
+      },
+      {
+        "name": "Finishing & Quality Check",
+        "percentage": 20,
+        "daysToComplete": 60,
+        "completed": false,
+        "amount": 9000000
+      },
+      {
+        "name": "Handover & Documentation",
+        "percentage": 10,
+        "daysToComplete": 15,
+        "completed": false,
+        "amount": 4500000
+      }
+    ],
+    "updatedAt": "2026-05-02T03:48:49.780Z"
+  },
+  {
+    "_id": "5lhpy862qmonsy4mt",
+    "tenderId": "TND-2024-0015",
+    "title": "Ahmedabad Metro Phase 2 Extension",
+    "description": "28.25km metro extension with 20 new stations",
+    "category": "transport",
+    "state": "Gujarat",
+    "budget": 35000000,
+    "utilisedAmount": 13061425,
+    "deadline": "2026-10-05T03:48:49.767Z",
+    "status": "in_progress",
+    "ipfsDocHash": "Qmj62kr8x20qf",
+    "governmentId": "zaq322wxumonsy4mb",
+    "createdAt": "2026-05-02T03:48:49.781Z",
+    "milestones": [
+      {
+        "name": "Site Survey & Planning",
+        "percentage": 15,
+        "daysToComplete": 30,
+        "completed": true,
+        "amount": 5250000
+      },
+      {
+        "name": "Design & Approval",
+        "percentage": 20,
+        "daysToComplete": 45,
+        "completed": true,
+        "amount": 7000000
+      },
+      {
+        "name": "Foundation & Structural Work",
+        "percentage": 35,
+        "daysToComplete": 120,
+        "completed": false,
+        "amount": 12250000
+      },
+      {
+        "name": "Finishing & Quality Check",
+        "percentage": 20,
+        "daysToComplete": 60,
+        "completed": false,
+        "amount": 7000000
+      },
+      {
+        "name": "Handover & Documentation",
+        "percentage": 10,
+        "daysToComplete": 15,
+        "completed": false,
+        "amount": 3500000
+      }
+    ],
+    "updatedAt": "2026-05-02T03:48:49.781Z"
+  },
+  {
+    "_id": "zxtzvtvw5monsy4mu",
+    "tenderId": "TND-2024-0016",
+    "title": "AIIMS Satellite Center Construction - Nagpur",
+    "description": "750-bed super specialty hospital with trauma center and research facility",
+    "category": "healthcare",
+    "state": "Maharashtra",
+    "budget": 32000000,
+    "utilisedAmount": 0,
+    "deadline": "2026-09-06T03:48:49.767Z",
+    "status": "open",
+    "ipfsDocHash": "Qm2npalxvts0i",
+    "governmentId": "zaq322wxumonsy4mb",
+    "createdAt": "2026-05-02T03:48:49.782Z",
+    "milestones": [
+      {
+        "name": "Site Survey & Planning",
+        "percentage": 15,
+        "daysToComplete": 30,
+        "completed": false,
+        "amount": 4800000
+      },
+      {
+        "name": "Design & Approval",
+        "percentage": 20,
+        "daysToComplete": 45,
+        "completed": false,
+        "amount": 6400000
+      },
+      {
+        "name": "Foundation & Structural Work",
+        "percentage": 35,
+        "daysToComplete": 120,
+        "completed": false,
+        "amount": 11200000
+      },
+      {
+        "name": "Finishing & Quality Check",
+        "percentage": 20,
+        "daysToComplete": 60,
+        "completed": false,
+        "amount": 6400000
+      },
+      {
+        "name": "Handover & Documentation",
+        "percentage": 10,
+        "daysToComplete": 15,
+        "completed": false,
+        "amount": 3200000
+      }
+    ],
+    "updatedAt": "2026-05-02T03:48:49.782Z"
+  },
+  {
+    "_id": "o0yfv3pwgmonsy4mv",
+    "tenderId": "TND-2024-0017",
+    "title": "District Hospital Modernization - Mysore",
+    "description": "Upgrade of 500-bed hospital with modern ICU and diagnostic center",
+    "category": "healthcare",
+    "state": "Karnataka",
+    "budget": 18000000,
+    "utilisedAmount": 0,
+    "deadline": "2026-08-18T03:48:49.767Z",
+    "status": "open",
+    "ipfsDocHash": "Qm9k1s622w81w",
+    "governmentId": "zaq322wxumonsy4mb",
+    "createdAt": "2026-05-02T03:48:49.783Z",
+    "milestones": [
+      {
+        "name": "Site Survey & Planning",
+        "percentage": 15,
+        "daysToComplete": 30,
+        "completed": false,
+        "amount": 2700000
+      },
+      {
+        "name": "Design & Approval",
+        "percentage": 20,
+        "daysToComplete": 45,
+        "completed": false,
+        "amount": 3600000
+      },
+      {
+        "name": "Foundation & Structural Work",
+        "percentage": 35,
+        "daysToComplete": 120,
+        "completed": false,
+        "amount": 6300000
+      },
+      {
+        "name": "Finishing & Quality Check",
+        "percentage": 20,
+        "daysToComplete": 60,
+        "completed": false,
+        "amount": 3600000
+      },
+      {
+        "name": "Handover & Documentation",
+        "percentage": 10,
+        "daysToComplete": 15,
+        "completed": false,
+        "amount": 1800000
+      }
+    ],
+    "updatedAt": "2026-05-02T03:48:49.783Z"
+  },
+  {
+    "_id": "bamwhskx4monsy4mv",
+    "tenderId": "TND-2024-0018",
+    "title": "Primary Health Center Network - Rural TN",
+    "description": "Construction of 45 PHCs with telemedicine facilities",
+    "category": "healthcare",
+    "state": "Tamil Nadu",
+    "budget": 12000000,
+    "utilisedAmount": 0,
+    "deadline": "2026-08-22T03:48:49.767Z",
+    "status": "open",
+    "ipfsDocHash": "Qmj37bncjtky",
+    "governmentId": "zaq322wxumonsy4mb",
+    "createdAt": "2026-05-02T03:48:49.783Z",
+    "milestones": [
+      {
+        "name": "Site Survey & Planning",
+        "percentage": 15,
+        "daysToComplete": 30,
+        "completed": false,
+        "amount": 1800000
+      },
+      {
+        "name": "Design & Approval",
+        "percentage": 20,
+        "daysToComplete": 45,
+        "completed": false,
+        "amount": 2400000
+      },
+      {
+        "name": "Foundation & Structural Work",
+        "percentage": 35,
+        "daysToComplete": 120,
+        "completed": false,
+        "amount": 4200000
+      },
+      {
+        "name": "Finishing & Quality Check",
+        "percentage": 20,
+        "daysToComplete": 60,
+        "completed": false,
+        "amount": 2400000
+      },
+      {
+        "name": "Handover & Documentation",
+        "percentage": 10,
+        "daysToComplete": 15,
+        "completed": false,
+        "amount": 1200000
+      }
+    ],
+    "updatedAt": "2026-05-02T03:48:49.783Z"
+  },
+  {
+    "_id": "jt4640m2qmonsy4mw",
+    "tenderId": "TND-2024-0019",
+    "title": "COVID Care Center Conversion - Delhi",
+    "description": "Converting temporary facility to permanent 300-bed infectious disease hospital",
+    "category": "healthcare",
+    "state": "Delhi",
+    "budget": 8000000,
+    "utilisedAmount": 0,
+    "deadline": "2026-08-19T03:48:49.767Z",
+    "status": "open",
+    "ipfsDocHash": "Qm23a2vscdiej",
+    "governmentId": "zaq322wxumonsy4mb",
+    "createdAt": "2026-05-02T03:48:49.784Z",
+    "milestones": [
+      {
+        "name": "Site Survey & Planning",
+        "percentage": 15,
+        "daysToComplete": 30,
+        "completed": false,
+        "amount": 1200000
+      },
+      {
+        "name": "Design & Approval",
+        "percentage": 20,
+        "daysToComplete": 45,
+        "completed": false,
+        "amount": 1600000
+      },
+      {
+        "name": "Foundation & Structural Work",
+        "percentage": 35,
+        "daysToComplete": 120,
+        "completed": false,
+        "amount": 2800000
+      },
+      {
+        "name": "Finishing & Quality Check",
+        "percentage": 20,
+        "daysToComplete": 60,
+        "completed": false,
+        "amount": 1600000
+      },
+      {
+        "name": "Handover & Documentation",
+        "percentage": 10,
+        "daysToComplete": 15,
+        "completed": false,
+        "amount": 800000
+      }
+    ],
+    "updatedAt": "2026-05-02T03:48:49.784Z"
+  },
+  {
+    "_id": "yp1wqfc8amonsy4my",
+    "tenderId": "TND-2024-0020",
+    "title": "IIT Campus Infrastructure Development",
+    "description": "New academic blocks, hostels, and research labs for 5000 students",
+    "category": "education",
+    "state": "Maharashtra",
+    "budget": 42000000,
+    "utilisedAmount": 22391670,
+    "deadline": "2026-03-26T03:48:49.767Z",
+    "status": "in_progress",
+    "ipfsDocHash": "Qm47hhxdd8ddy",
+    "governmentId": "zaq322wxumonsy4mb",
+    "createdAt": "2026-05-02T03:48:49.786Z",
+    "milestones": [
+      {
+        "name": "Site Survey & Planning",
+        "percentage": 15,
+        "daysToComplete": 30,
+        "completed": true,
+        "amount": 6300000
+      },
+      {
+        "name": "Design & Approval",
+        "percentage": 20,
+        "daysToComplete": 45,
+        "completed": false,
+        "amount": 8400000
+      },
+      {
+        "name": "Foundation & Structural Work",
+        "percentage": 35,
+        "daysToComplete": 120,
+        "completed": false,
+        "amount": 14699999
+      },
+      {
+        "name": "Finishing & Quality Check",
+        "percentage": 20,
+        "daysToComplete": 60,
+        "completed": false,
+        "amount": 8400000
+      },
+      {
+        "name": "Handover & Documentation",
+        "percentage": 10,
+        "daysToComplete": 15,
+        "completed": false,
+        "amount": 4200000
+      }
+    ],
+    "updatedAt": "2026-05-02T03:48:49.786Z"
+  },
+  {
+    "_id": "u3y2a0xcomonsy4my",
+    "tenderId": "TND-2024-0021",
+    "title": "Smart Classroom Initiative - 500 Schools",
+    "description": "Digital infrastructure and smart boards for government schools",
+    "category": "education",
+    "state": "Karnataka",
+    "budget": 15000000,
+    "utilisedAmount": 8296669,
+    "deadline": "2026-07-02T03:48:49.767Z",
+    "status": "in_progress",
+    "ipfsDocHash": "Qm0mwtxv03mkq",
+    "governmentId": "zaq322wxumonsy4mb",
+    "createdAt": "2026-05-02T03:48:49.786Z",
+    "milestones": [
+      {
+        "name": "Site Survey & Planning",
+        "percentage": 15,
+        "daysToComplete": 30,
+        "completed": true,
+        "amount": 2250000
+      },
+      {
+        "name": "Design & Approval",
+        "percentage": 20,
+        "daysToComplete": 45,
+        "completed": true,
+        "amount": 3000000
+      },
+      {
+        "name": "Foundation & Structural Work",
+        "percentage": 35,
+        "daysToComplete": 120,
+        "completed": false,
+        "amount": 5250000
+      },
+      {
+        "name": "Finishing & Quality Check",
+        "percentage": 20,
+        "daysToComplete": 60,
+        "completed": false,
+        "amount": 3000000
+      },
+      {
+        "name": "Handover & Documentation",
+        "percentage": 10,
+        "daysToComplete": 15,
+        "completed": false,
+        "amount": 1500000
+      }
+    ],
+    "updatedAt": "2026-05-02T03:48:49.786Z"
+  },
+  {
+    "_id": "rvkrzcywnmonsy4mz",
+    "tenderId": "TND-2024-0022",
+    "title": "University Sports Complex Construction",
+    "description": "Olympic-standard sports facilities with indoor stadium",
+    "category": "education",
+    "state": "Tamil Nadu",
+    "budget": 22000000,
+    "utilisedAmount": 12746579,
+    "deadline": "2026-08-14T03:48:49.767Z",
+    "status": "in_progress",
+    "ipfsDocHash": "Qmgi58locaj1j",
+    "governmentId": "zaq322wxumonsy4mb",
+    "createdAt": "2026-05-02T03:48:49.787Z",
+    "milestones": [
+      {
+        "name": "Site Survey & Planning",
+        "percentage": 15,
+        "daysToComplete": 30,
+        "completed": true,
+        "amount": 3300000
+      },
+      {
+        "name": "Design & Approval",
+        "percentage": 20,
+        "daysToComplete": 45,
+        "completed": true,
+        "amount": 4400000
+      },
+      {
+        "name": "Foundation & Structural Work",
+        "percentage": 35,
+        "daysToComplete": 120,
+        "completed": false,
+        "amount": 7699999
+      },
+      {
+        "name": "Finishing & Quality Check",
+        "percentage": 20,
+        "daysToComplete": 60,
+        "completed": false,
+        "amount": 4400000
+      },
+      {
+        "name": "Handover & Documentation",
+        "percentage": 10,
+        "daysToComplete": 15,
+        "completed": false,
+        "amount": 2200000
+      }
+    ],
+    "updatedAt": "2026-05-02T03:48:49.787Z"
+  },
+  {
+    "_id": "pes5cyof6monsy4n0",
+    "tenderId": "TND-2024-0023",
+    "title": "Skill Development Centers - 25 Districts",
+    "description": "Vocational training centers with modern equipment",
+    "category": "education",
+    "state": "Uttar Pradesh",
+    "budget": 18000000,
+    "utilisedAmount": 18000000,
+    "deadline": "2026-04-02T03:48:49.767Z",
+    "status": "completed",
+    "ipfsDocHash": "Qm3nm4g11eb2a",
+    "governmentId": "zaq322wxumonsy4mb",
+    "createdAt": "2026-05-02T03:48:49.788Z",
+    "milestones": [
+      {
+        "name": "Site Survey & Planning",
+        "percentage": 15,
+        "daysToComplete": 30,
+        "completed": true,
+        "amount": 2700000
+      },
+      {
+        "name": "Design & Approval",
+        "percentage": 20,
+        "daysToComplete": 45,
+        "completed": true,
+        "amount": 3600000
+      },
+      {
+        "name": "Foundation & Structural Work",
+        "percentage": 35,
+        "daysToComplete": 120,
+        "completed": true,
+        "amount": 6300000
+      },
+      {
+        "name": "Finishing & Quality Check",
+        "percentage": 20,
+        "daysToComplete": 60,
+        "completed": true,
+        "amount": 3600000
+      },
+      {
+        "name": "Handover & Documentation",
+        "percentage": 10,
+        "daysToComplete": 15,
+        "completed": true,
+        "amount": 1800000
+      }
+    ],
+    "updatedAt": "2026-05-02T03:48:49.788Z"
+  },
+  {
+    "_id": "ewkb33ak7monsy4n1",
+    "tenderId": "TND-2024-0024",
+    "title": "Solar Power Plant - 500 MW Capacity",
+    "description": "Grid-connected solar farm with battery storage system",
+    "category": "energy",
+    "state": "Rajasthan",
+    "budget": 68000000,
+    "utilisedAmount": 0,
+    "deadline": "2026-11-02T03:48:49.767Z",
+    "status": "open",
+    "ipfsDocHash": "Qmkmukqdvpqu",
+    "governmentId": "zaq322wxumonsy4mb",
+    "createdAt": "2026-05-02T03:48:49.789Z",
+    "milestones": [
+      {
+        "name": "Site Survey & Planning",
+        "percentage": 15,
+        "daysToComplete": 30,
+        "completed": false,
+        "amount": 10200000
+      },
+      {
+        "name": "Design & Approval",
+        "percentage": 20,
+        "daysToComplete": 45,
+        "completed": false,
+        "amount": 13600000
+      },
+      {
+        "name": "Foundation & Structural Work",
+        "percentage": 35,
+        "daysToComplete": 120,
+        "completed": false,
+        "amount": 23800000
+      },
+      {
+        "name": "Finishing & Quality Check",
+        "percentage": 20,
+        "daysToComplete": 60,
+        "completed": false,
+        "amount": 13600000
+      },
+      {
+        "name": "Handover & Documentation",
+        "percentage": 10,
+        "daysToComplete": 15,
+        "completed": false,
+        "amount": 6800000
+      }
+    ],
+    "updatedAt": "2026-05-02T03:48:49.789Z"
+  },
+  {
+    "_id": "iwjv322ozmonsy4n2",
+    "tenderId": "TND-2024-0025",
+    "title": "Wind Energy Project - Coastal Region",
+    "description": "300 MW wind farm with 150 turbines and transmission infrastructure",
+    "category": "energy",
+    "state": "Gujarat",
+    "budget": 55000000,
+    "utilisedAmount": 0,
+    "deadline": "2026-11-03T03:48:49.767Z",
+    "status": "open",
+    "ipfsDocHash": "Qmpfq645rulka",
+    "governmentId": "zaq322wxumonsy4mb",
+    "createdAt": "2026-05-02T03:48:49.790Z",
+    "milestones": [
+      {
+        "name": "Site Survey & Planning",
+        "percentage": 15,
+        "daysToComplete": 30,
+        "completed": false,
+        "amount": 8250000
+      },
+      {
+        "name": "Design & Approval",
+        "percentage": 20,
+        "daysToComplete": 45,
+        "completed": false,
+        "amount": 11000000
+      },
+      {
+        "name": "Foundation & Structural Work",
+        "percentage": 35,
+        "daysToComplete": 120,
+        "completed": false,
+        "amount": 19250000
+      },
+      {
+        "name": "Finishing & Quality Check",
+        "percentage": 20,
+        "daysToComplete": 60,
+        "completed": false,
+        "amount": 11000000
+      },
+      {
+        "name": "Handover & Documentation",
+        "percentage": 10,
+        "daysToComplete": 15,
+        "completed": false,
+        "amount": 5500000
+      }
+    ],
+    "updatedAt": "2026-05-02T03:48:49.790Z"
+  },
+  {
+    "_id": "ylurmd3mnmonsy4n5",
+    "tenderId": "TND-2024-0026",
+    "title": "Smart Grid Implementation - Urban Areas",
+    "description": "Advanced metering and distribution automation for 2 million consumers",
+    "category": "energy",
+    "state": "Karnataka",
+    "budget": 28000000,
+    "utilisedAmount": 0,
+    "deadline": "2026-05-26T03:48:49.767Z",
+    "status": "open",
+    "ipfsDocHash": "Qmvs03vqch34",
+    "governmentId": "zaq322wxumonsy4mb",
+    "createdAt": "2026-05-02T03:48:49.793Z",
+    "milestones": [
+      {
+        "name": "Site Survey & Planning",
+        "percentage": 15,
+        "daysToComplete": 30,
+        "completed": false,
+        "amount": 4200000
+      },
+      {
+        "name": "Design & Approval",
+        "percentage": 20,
+        "daysToComplete": 45,
+        "completed": false,
+        "amount": 5600000
+      },
+      {
+        "name": "Foundation & Structural Work",
+        "percentage": 35,
+        "daysToComplete": 120,
+        "completed": false,
+        "amount": 9800000
+      },
+      {
+        "name": "Finishing & Quality Check",
+        "percentage": 20,
+        "daysToComplete": 60,
+        "completed": false,
+        "amount": 5600000
+      },
+      {
+        "name": "Handover & Documentation",
+        "percentage": 10,
+        "daysToComplete": 15,
+        "completed": false,
+        "amount": 2800000
+      }
+    ],
+    "updatedAt": "2026-05-02T03:48:49.793Z"
+  },
+  {
+    "_id": "x6ohpnv6mmonsy4n6",
+    "tenderId": "TND-2024-0027",
+    "title": "Hydroelectric Plant Modernization",
+    "description": "Upgrade of 250 MW plant with new turbines and control systems",
+    "category": "energy",
+    "state": "Uttarakhand",
+    "budget": 38000000,
+    "utilisedAmount": 0,
+    "deadline": "2026-07-01T03:48:49.767Z",
+    "status": "open",
+    "ipfsDocHash": "Qml98mky0wn7g",
+    "governmentId": "zaq322wxumonsy4mb",
+    "createdAt": "2026-05-02T03:48:49.794Z",
+    "milestones": [
+      {
+        "name": "Site Survey & Planning",
+        "percentage": 15,
+        "daysToComplete": 30,
+        "completed": false,
+        "amount": 5700000
+      },
+      {
+        "name": "Design & Approval",
+        "percentage": 20,
+        "daysToComplete": 45,
+        "completed": false,
+        "amount": 7600000
+      },
+      {
+        "name": "Foundation & Structural Work",
+        "percentage": 35,
+        "daysToComplete": 120,
+        "completed": false,
+        "amount": 13300000
+      },
+      {
+        "name": "Finishing & Quality Check",
+        "percentage": 20,
+        "daysToComplete": 60,
+        "completed": false,
+        "amount": 7600000
+      },
+      {
+        "name": "Handover & Documentation",
+        "percentage": 10,
+        "daysToComplete": 15,
+        "completed": false,
+        "amount": 3800000
+      }
+    ],
+    "updatedAt": "2026-05-02T03:48:49.794Z"
+  },
+  {
+    "_id": "cb9pkhumdmonuijob",
+    "tenderId": "T-1777696362010-xobeybg3w",
+    "title": "Test Road Project",
+    "category": "infrastructure",
+    "budget": 5000000,
+    "deadline": "2026-12-31T00:00:00.000Z",
+    "ipfsDocHash": "QmTestHash1234567890",
+    "status": "open",
+    "createdAt": "2026-05-02T04:32:42.011Z",
+    "updatedAt": "2026-05-02T04:32:42.011Z",
+    "milestones": [
+      {
+        "id": "M-1777696362010-0",
+        "name": "Phase 1",
+        "percentage": 100,
+        "daysToComplete": 30,
+        "completed": false,
+        "completedAt": null
+      }
+    ],
+    "bids": [],
+    "winner": null,
+    "biddingClosedAt": null
+  },
+  {
+    "_id": "x99nbnyo1monvctb9",
+    "tenderId": "T-1777697774180-ox8184p5k",
+    "title": "fghhghj",
+    "category": "technology",
+    "budget": 4567887,
+    "deadline": "2027-03-31T00:00:00.000Z",
+    "ipfsDocHash": "Qmfhv4t9w8jhr",
+    "status": "open",
+    "createdAt": "2026-05-02T04:56:14.181Z",
+    "updatedAt": "2026-05-02T04:56:14.181Z",
+    "milestones": [
+      {
+        "id": "M-1777697774180-0",
+        "name": "Planning & Design",
+        "percentage": 25,
+        "daysToComplete": 30,
+        "completed": false,
+        "completedAt": null
+      },
+      {
+        "id": "M-1777697774180-1",
+        "name": "Construction",
+        "percentage": 50,
+        "daysToComplete": 90,
+        "completed": false,
+        "completedAt": null
+      },
+      {
+        "id": "M-1777697774180-2",
+        "name": "Completion & Handover",
+        "percentage": 25,
+        "daysToComplete": 30,
+        "completed": false,
+        "completedAt": null
+      }
+    ],
+    "bids": [],
+    "winner": null,
+    "biddingClosedAt": null
+  }
+]

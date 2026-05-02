@@ -1,0 +1,102 @@
+# ===========================
+# Dependencies
+# ===========================
+node_modules/
+*/node_modules/
+
+# ===========================
+# Environment / Sensitive Info
+# ===========================
+.env
+.env.local
+.env.*.local
+frontend/.env
+ml-service/.env
+*.key
+*.pem
+*.secret
+*.p12
+*.pfx
+
+# ===========================
+# IDE / Editor
+# ===========================
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# ===========================
+# AI / Agent Tooling
+# ===========================
+.claude/
+.cursor/
+
+# ===========================
+# Build Outputs
+# ===========================
+dist/
+build/
+frontend/dist/
+*.tsbuildinfo
+
+# ===========================
+# Foundry / Contracts Build
+# ===========================
+contracts/out/
+contracts/cache/
+contracts/foundry.lock
+
+# ===========================
+# Logs
+# ===========================
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ===========================
+# Unnecessary / Auto-generated .md files
+# (Keep only README.md and LICENSE)
+# ===========================
+COMPLETION_SUMMARY.md
+CONFIGURATION_COMPLETE.md
+CORS_AND_METAMASK_FIX.md
+CURRENT_STATUS.md
+DEMO_DATA_UPDATED.md
+ERROR_TOAST_FIX.md
+FINAL_STATUS.md
+FIXES_APPLIED.md
+FIXES_APPLIED_SUMMARY.md
+Gov_Chain_README.md
+HOW_TO_TEST.md
+HOW_TO_TEST_TENDER_CREATION.md
+INTEGRATION_COMPLETE.md
+INTEGRATION_SUMMARY.md
+PORTAL_ACCESS_FIX.md
+PORT_FIX.md
+PROJECT_STATUS.md
+QUICKSTART.md
+QUICK_START.md
+README_QUICK_START.md
+START.md
+SUCCESS.md
+TENDER_CREATION_FIX.md
+TROUBLESHOOTING.md
+
+# ===========================
+# Test / Debug HTML files
+# ===========================
+TEST_TENDER_CREATION.html
+test-api.html
+frontend/public/test.html
+
+# ===========================
+# OS Files
+# ===========================
+.DS_Store
+Thumbs.db
+desktop.ini
